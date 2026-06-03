@@ -14,7 +14,177 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      dhikr_sessions: {
+        Row: {
+          count: number
+          created_at: string
+          dhikr_name: string
+          id: string
+          session_date: string
+          target: number
+          user_id: string
+        }
+        Insert: {
+          count?: number
+          created_at?: string
+          dhikr_name: string
+          id?: string
+          session_date?: string
+          target?: number
+          user_id: string
+        }
+        Update: {
+          count?: number
+          created_at?: string
+          dhikr_name?: string
+          id?: string
+          session_date?: string
+          target?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      goals: {
+        Row: {
+          category: string
+          created_at: string
+          done: boolean
+          id: string
+          progress: number
+          target: number
+          title: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          done?: boolean
+          id?: string
+          progress?: number
+          target?: number
+          title: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          done?: boolean
+          id?: string
+          progress?: number
+          target?: number
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      journal_entries: {
+        Row: {
+          content: string
+          created_at: string
+          entry_date: string
+          id: string
+          mood: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          entry_date?: string
+          id?: string
+          mood?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          entry_date?: string
+          id?: string
+          mood?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      prayer_logs: {
+        Row: {
+          completed: boolean
+          completed_at: string
+          id: string
+          prayer_date: string
+          prayer_name: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string
+          id?: string
+          prayer_date?: string
+          prayer_name: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string
+          id?: string
+          prayer_date?: string
+          prayer_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          city: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      quran_progress: {
+        Row: {
+          ayah: number
+          created_at: string
+          id: string
+          minutes_read: number
+          read_date: string
+          surah: number
+          user_id: string
+        }
+        Insert: {
+          ayah?: number
+          created_at?: string
+          id?: string
+          minutes_read?: number
+          read_date?: string
+          surah: number
+          user_id: string
+        }
+        Update: {
+          ayah?: number
+          created_at?: string
+          id?: string
+          minutes_read?: number
+          read_date?: string
+          surah?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
