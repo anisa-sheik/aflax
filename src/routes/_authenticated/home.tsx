@@ -8,13 +8,14 @@ export const Route = createFileRoute("/_authenticated/home")({
   component: HomeScreen,
 });
 
-const PRAYERS = [
+type Prayer = { key: string; label: string; time: string };
+const PRAYERS: Prayer[] = [
   { key: "fajr", label: "Fajr", time: "05:12" },
   { key: "dhuhr", label: "Dhuhr", time: "12:34" },
   { key: "asr", label: "Asr", time: "15:48" },
   { key: "maghrib", label: "Maghrib", time: "18:22" },
   { key: "isha", label: "Isha", time: "19:51" },
-] as const;
+];
 
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 
