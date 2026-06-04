@@ -1,43 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Compass, BookOpen, NotebookPen, Flame, Check, Heart, Sparkles, BarChart3 } from "lucide-react";
+import { BookOpen, NotebookPen, Flame, Check, Heart, Sparkles, BarChart3 } from "lucide-react";
 import { hijriToday, gregorianToday } from "@/lib/hijri";
+import { usePrayerSettings, useNextPrayer, PRAYER_LABELS, fmt } from "@/lib/prayer-times";
 
 export const Route = createFileRoute("/_authenticated/home")({
   component: HomeScreen,
 });
 
-const PRAYERS = [
-  { key: "fajr", label: "Fajr", time: "05:12" },
-  { key: "dhuhr", label: "Dhuhr", time: "12:34" },
-  { key: "asr", label: "Asr", time: "15:48" },
-  { key: "maghrib", label: "Maghrib", time: "18:22" },
-  { key: "isha", label: "Isha", time: "19:51" },
-];
+const LOGGABLE = ["fajr", "dhuhr", "asr", "maghrib", "isha"] as const;
 
 function todayISO() { return new Date().toISOString().slice(0, 10); }
-
-function useNextPrayer() {
-  const [now, setNow] = useState(new Date());
-  useEffect(() => { const id = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(id); }, []);
-  return useMemo(() => {
-    const cur = now.getHours() * 60 + now.getMinutes();
-    let next = PRAYERS[0];
-    let mins = (24 * 60 - cur) + (5 * 60 + 12);
-    for (const p of PRAYERS) {
-      const [h, m] = p.time.split(":").map(Number);
-      const total = h * 60 + m;
-      if (total > cur) { next = p; mins = total - cur; break; }
-    }
-    const remSec = Math.max(0, mins * 60 - now.getSeconds());
-    const h = Math.floor(remSec / 3600);
-    const m = Math.floor((remSec % 3600) / 60);
-    const s = remSec % 60;
-    return { next, countdown: `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` };
-  }, [now]);
-}
 
 function HomeScreen() {
   const qc = useQueryClient();
