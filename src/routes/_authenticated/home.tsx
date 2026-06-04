@@ -1,47 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Compass, BookOpen, NotebookPen, Flame, Check, Heart, Sparkles, BarChart3 } from "lucide-react";
+import { BookOpen, NotebookPen, Flame, Check, Heart, Sparkles, BarChart3 } from "lucide-react";
 import { hijriToday, gregorianToday } from "@/lib/hijri";
+import { usePrayerSettings, useNextPrayer, PRAYER_LABELS, fmt } from "@/lib/prayer-times";
 
 export const Route = createFileRoute("/_authenticated/home")({
   component: HomeScreen,
 });
 
-const PRAYERS = [
-  { key: "fajr", label: "Fajr", time: "05:12" },
-  { key: "dhuhr", label: "Dhuhr", time: "12:34" },
-  { key: "asr", label: "Asr", time: "15:48" },
-  { key: "maghrib", label: "Maghrib", time: "18:22" },
-  { key: "isha", label: "Isha", time: "19:51" },
-];
+const LOGGABLE = ["fajr", "dhuhr", "asr", "maghrib", "isha"] as const;
 
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 
-function useNextPrayer() {
-  const [now, setNow] = useState(new Date());
-  useEffect(() => { const id = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(id); }, []);
-  return useMemo(() => {
-    const cur = now.getHours() * 60 + now.getMinutes();
-    let next = PRAYERS[0];
-    let mins = (24 * 60 - cur) + (5 * 60 + 12);
-    for (const p of PRAYERS) {
-      const [h, m] = p.time.split(":").map(Number);
-      const total = h * 60 + m;
-      if (total > cur) { next = p; mins = total - cur; break; }
-    }
-    const remSec = Math.max(0, mins * 60 - now.getSeconds());
-    const h = Math.floor(remSec / 3600);
-    const m = Math.floor((remSec % 3600) / 60);
-    const s = remSec % 60;
-    return { next, countdown: `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` };
-  }, [now]);
-}
-
 function HomeScreen() {
   const qc = useQueryClient();
-  const { next, countdown } = useNextPrayer();
+  const settingsQ = usePrayerSettings();
+  const np = useNextPrayer(settingsQ.data);
 
   const profileQ = useQuery({
     queryKey: ["profile"],
@@ -135,12 +110,12 @@ function HomeScreen() {
         <p className="text-xs uppercase tracking-widest opacity-70">Next prayer</p>
         <div className="mt-2 flex items-end justify-between">
           <div>
-            <h2 className="text-4xl font-bold">{next.label}</h2>
-            <p className="mt-1 text-sm opacity-80">at {next.time}</p>
+            <h2 className="text-4xl font-bold">{np ? PRAYER_LABELS[np.next.key] : "—"}</h2>
+            <p className="mt-1 text-sm opacity-80">{np ? `at ${fmt(np.next.at)}` : "Set your location"}</p>
           </div>
           <div className="text-right">
             <p className="text-xs uppercase opacity-70">in</p>
-            <p className="font-mono text-2xl font-bold tabular-nums">{countdown}</p>
+            <p className="font-mono text-2xl font-bold tabular-nums">{np?.countdown ?? "--:--:--"}</p>
           </div>
         </div>
         <div className="mt-4 h-1.5 rounded-full bg-black/20 overflow-hidden">
@@ -155,20 +130,21 @@ function HomeScreen() {
           <span className="text-xs text-muted-foreground">{done}/5 · {pct}%</span>
         </div>
         <div className="mt-4 grid grid-cols-5 gap-2">
-          {PRAYERS.map((p) => {
-            const isDone = logsQ.data?.some((l: any) => l.prayer_name === p.key);
+          {LOGGABLE.map((k) => {
+            const isDone = logsQ.data?.some((l: any) => l.prayer_name === k);
             return (
-              <button key={p.key} onClick={() => togglePrayer.mutate(p.key)}
+              <button key={k} onClick={() => togglePrayer.mutate(k)}
                 className={`flex flex-col items-center gap-1.5 rounded-2xl py-2.5 transition ${isDone ? "bg-primary/20 text-primary" : "bg-surface text-muted-foreground"}`}>
                 <span className={`grid h-7 w-7 place-items-center rounded-full ${isDone ? "bg-primary text-primary-foreground" : "border border-border"}`}>
                   {isDone ? <Check className="h-3.5 w-3.5" /> : null}
                 </span>
-                <span className="text-[11px] font-medium">{p.label}</span>
+                <span className="text-[11px] font-medium">{PRAYER_LABELS[k]}</span>
               </button>
             );
           })}
         </div>
       </section>
+
 
       <section className="glass-card rounded-3xl p-5">
         <div className="flex items-center justify-between">
