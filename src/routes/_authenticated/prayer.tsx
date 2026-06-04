@@ -252,7 +252,7 @@ function PrayerSettings() {
         {loc.latitude != null ? (
           <div className="rounded-2xl bg-surface p-3 text-sm">
             <p className="font-semibold flex items-center gap-1.5"><MapPin className="h-4 w-4 text-primary" />{loc.city ?? "Unknown"}{loc.country ? `, ${loc.country}` : ""}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground font-mono">{loc.latitude.toFixed(4)}, {loc.longitude.toFixed(4)}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground font-mono">{loc.latitude.toFixed(4)}, {loc.longitude?.toFixed(4)}</p>
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">No location set.</p>
