@@ -170,6 +170,8 @@ export type Database = {
       prayer_settings: {
         Row: {
           asr_offset: number
+          city: string | null
+          country: string | null
           dhuhr_offset: number
           fajr_offset: number
           isha_offset: number
@@ -178,11 +180,14 @@ export type Database = {
           maghrib_offset: number
           method: string
           notifications: boolean
+          timezone: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           asr_offset?: number
+          city?: string | null
+          country?: string | null
           dhuhr_offset?: number
           fajr_offset?: number
           isha_offset?: number
@@ -191,11 +196,14 @@ export type Database = {
           maghrib_offset?: number
           method?: string
           notifications?: boolean
+          timezone?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           asr_offset?: number
+          city?: string | null
+          country?: string | null
           dhuhr_offset?: number
           fajr_offset?: number
           isha_offset?: number
@@ -204,6 +212,7 @@ export type Database = {
           maghrib_offset?: number
           method?: string
           notifications?: boolean
+          timezone?: string | null
           updated_at?: string
           user_id?: string
         }
