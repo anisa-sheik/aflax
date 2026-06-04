@@ -110,12 +110,12 @@ function HomeScreen() {
         <p className="text-xs uppercase tracking-widest opacity-70">Next prayer</p>
         <div className="mt-2 flex items-end justify-between">
           <div>
-            <h2 className="text-4xl font-bold">{next.label}</h2>
-            <p className="mt-1 text-sm opacity-80">at {next.time}</p>
+            <h2 className="text-4xl font-bold">{np ? PRAYER_LABELS[np.next.key] : "—"}</h2>
+            <p className="mt-1 text-sm opacity-80">{np ? `at ${fmt(np.next.at)}` : "Set your location"}</p>
           </div>
           <div className="text-right">
             <p className="text-xs uppercase opacity-70">in</p>
-            <p className="font-mono text-2xl font-bold tabular-nums">{countdown}</p>
+            <p className="font-mono text-2xl font-bold tabular-nums">{np?.countdown ?? "--:--:--"}</p>
           </div>
         </div>
         <div className="mt-4 h-1.5 rounded-full bg-black/20 overflow-hidden">
@@ -130,20 +130,21 @@ function HomeScreen() {
           <span className="text-xs text-muted-foreground">{done}/5 · {pct}%</span>
         </div>
         <div className="mt-4 grid grid-cols-5 gap-2">
-          {PRAYERS.map((p) => {
-            const isDone = logsQ.data?.some((l: any) => l.prayer_name === p.key);
+          {LOGGABLE.map((k) => {
+            const isDone = logsQ.data?.some((l: any) => l.prayer_name === k);
             return (
-              <button key={p.key} onClick={() => togglePrayer.mutate(p.key)}
+              <button key={k} onClick={() => togglePrayer.mutate(k)}
                 className={`flex flex-col items-center gap-1.5 rounded-2xl py-2.5 transition ${isDone ? "bg-primary/20 text-primary" : "bg-surface text-muted-foreground"}`}>
                 <span className={`grid h-7 w-7 place-items-center rounded-full ${isDone ? "bg-primary text-primary-foreground" : "border border-border"}`}>
                   {isDone ? <Check className="h-3.5 w-3.5" /> : null}
                 </span>
-                <span className="text-[11px] font-medium">{p.label}</span>
+                <span className="text-[11px] font-medium">{PRAYER_LABELS[k]}</span>
               </button>
             );
           })}
         </div>
       </section>
+
 
       <section className="glass-card rounded-3xl p-5">
         <div className="flex items-center justify-between">
