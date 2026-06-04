@@ -15,7 +15,8 @@ function todayISO() { return new Date().toISOString().slice(0, 10); }
 
 function HomeScreen() {
   const qc = useQueryClient();
-  const { next, countdown } = useNextPrayer();
+  const settingsQ = usePrayerSettings();
+  const np = useNextPrayer(settingsQ.data);
 
   const profileQ = useQuery({
     queryKey: ["profile"],
