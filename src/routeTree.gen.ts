@@ -16,6 +16,7 @@ import { Route as AuthenticatedQuranRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedPrayerRouteImport } from './routes/_authenticated/prayer'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
+import { Route as AuthenticatedGoalsRouteImport } from './routes/_authenticated/goals'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -51,10 +52,16 @@ const AuthenticatedHomeRoute = AuthenticatedHomeRouteImport.update({
   path: '/home',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedGoalsRoute = AuthenticatedGoalsRouteImport.update({
+  id: '/goals',
+  path: '/goals',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/goals': typeof AuthenticatedGoalsRoute
   '/home': typeof AuthenticatedHomeRoute
   '/prayer': typeof AuthenticatedPrayerRoute
   '/profile': typeof AuthenticatedProfileRoute
@@ -63,6 +70,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/goals': typeof AuthenticatedGoalsRoute
   '/home': typeof AuthenticatedHomeRoute
   '/prayer': typeof AuthenticatedPrayerRoute
   '/profile': typeof AuthenticatedProfileRoute
@@ -73,6 +81,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/goals': typeof AuthenticatedGoalsRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/prayer': typeof AuthenticatedPrayerRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
@@ -80,14 +89,22 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/home' | '/prayer' | '/profile' | '/quran'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/goals'
+    | '/home'
+    | '/prayer'
+    | '/profile'
+    | '/quran'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/home' | '/prayer' | '/profile' | '/quran'
+  to: '/' | '/auth' | '/goals' | '/home' | '/prayer' | '/profile' | '/quran'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/goals'
     | '/_authenticated/home'
     | '/_authenticated/prayer'
     | '/_authenticated/profile'
@@ -151,10 +168,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHomeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/goals': {
+      id: '/_authenticated/goals'
+      path: '/goals'
+      fullPath: '/goals'
+      preLoaderRoute: typeof AuthenticatedGoalsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedGoalsRoute: typeof AuthenticatedGoalsRoute
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedPrayerRoute: typeof AuthenticatedPrayerRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
@@ -162,6 +187,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedGoalsRoute: AuthenticatedGoalsRoute,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedPrayerRoute: AuthenticatedPrayerRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
