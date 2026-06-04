@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      daily_checkins: {
+        Row: {
+          checkin_date: string
+          created_at: string
+          dhikr_done: boolean
+          dua_done: boolean
+          id: string
+          quran_done: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          checkin_date?: string
+          created_at?: string
+          dhikr_done?: boolean
+          dua_done?: boolean
+          id?: string
+          quran_done?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          checkin_date?: string
+          created_at?: string
+          dhikr_done?: boolean
+          dua_done?: boolean
+          id?: string
+          quran_done?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       dhikr_sessions: {
         Row: {
           count: number
@@ -111,6 +144,7 @@ export type Database = {
           id: string
           prayer_date: string
           prayer_name: string
+          status: string
           user_id: string
         }
         Insert: {
@@ -119,6 +153,7 @@ export type Database = {
           id?: string
           prayer_date?: string
           prayer_name: string
+          status?: string
           user_id: string
         }
         Update: {
@@ -127,6 +162,49 @@ export type Database = {
           id?: string
           prayer_date?: string
           prayer_name?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      prayer_settings: {
+        Row: {
+          asr_offset: number
+          dhuhr_offset: number
+          fajr_offset: number
+          isha_offset: number
+          latitude: number | null
+          longitude: number | null
+          maghrib_offset: number
+          method: string
+          notifications: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asr_offset?: number
+          dhuhr_offset?: number
+          fajr_offset?: number
+          isha_offset?: number
+          latitude?: number | null
+          longitude?: number | null
+          maghrib_offset?: number
+          method?: string
+          notifications?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asr_offset?: number
+          dhuhr_offset?: number
+          fajr_offset?: number
+          isha_offset?: number
+          latitude?: number | null
+          longitude?: number | null
+          maghrib_offset?: number
+          method?: string
+          notifications?: boolean
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -152,6 +230,33 @@ export type Database = {
           display_name?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      quran_bookmarks: {
+        Row: {
+          ayah: number
+          created_at: string
+          id: string
+          note: string | null
+          surah: number
+          user_id: string
+        }
+        Insert: {
+          ayah?: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          surah: number
+          user_id: string
+        }
+        Update: {
+          ayah?: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          surah?: number
+          user_id?: string
         }
         Relationships: []
       }
