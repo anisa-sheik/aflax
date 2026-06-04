@@ -12,11 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedTrackerRouteImport } from './routes/_authenticated/tracker'
 import { Route as AuthenticatedQuranRouteImport } from './routes/_authenticated/quran'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedPrayerRouteImport } from './routes/_authenticated/prayer'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
+import { Route as AuthenticatedGoalsRouteImport } from './routes/_authenticated/goals'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -31,11 +31,6 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedTrackerRoute = AuthenticatedTrackerRouteImport.update({
-  id: '/tracker',
-  path: '/tracker',
-  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedQuranRoute = AuthenticatedQuranRouteImport.update({
   id: '/quran',
@@ -57,58 +52,63 @@ const AuthenticatedHomeRoute = AuthenticatedHomeRouteImport.update({
   path: '/home',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedGoalsRoute = AuthenticatedGoalsRouteImport.update({
+  id: '/goals',
+  path: '/goals',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/goals': typeof AuthenticatedGoalsRoute
   '/home': typeof AuthenticatedHomeRoute
   '/prayer': typeof AuthenticatedPrayerRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/quran': typeof AuthenticatedQuranRoute
-  '/tracker': typeof AuthenticatedTrackerRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/goals': typeof AuthenticatedGoalsRoute
   '/home': typeof AuthenticatedHomeRoute
   '/prayer': typeof AuthenticatedPrayerRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/quran': typeof AuthenticatedQuranRoute
-  '/tracker': typeof AuthenticatedTrackerRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/goals': typeof AuthenticatedGoalsRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/prayer': typeof AuthenticatedPrayerRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/quran': typeof AuthenticatedQuranRoute
-  '/_authenticated/tracker': typeof AuthenticatedTrackerRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/auth'
+    | '/goals'
     | '/home'
     | '/prayer'
     | '/profile'
     | '/quran'
-    | '/tracker'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/home' | '/prayer' | '/profile' | '/quran' | '/tracker'
+  to: '/' | '/auth' | '/goals' | '/home' | '/prayer' | '/profile' | '/quran'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/goals'
     | '/_authenticated/home'
     | '/_authenticated/prayer'
     | '/_authenticated/profile'
     | '/_authenticated/quran'
-    | '/_authenticated/tracker'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -140,13 +140,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/tracker': {
-      id: '/_authenticated/tracker'
-      path: '/tracker'
-      fullPath: '/tracker'
-      preLoaderRoute: typeof AuthenticatedTrackerRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/quran': {
       id: '/_authenticated/quran'
       path: '/quran'
@@ -175,23 +168,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHomeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/goals': {
+      id: '/_authenticated/goals'
+      path: '/goals'
+      fullPath: '/goals'
+      preLoaderRoute: typeof AuthenticatedGoalsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedGoalsRoute: typeof AuthenticatedGoalsRoute
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedPrayerRoute: typeof AuthenticatedPrayerRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedQuranRoute: typeof AuthenticatedQuranRoute
-  AuthenticatedTrackerRoute: typeof AuthenticatedTrackerRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedGoalsRoute: AuthenticatedGoalsRoute,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedPrayerRoute: AuthenticatedPrayerRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedQuranRoute: AuthenticatedQuranRoute,
-  AuthenticatedTrackerRoute: AuthenticatedTrackerRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
