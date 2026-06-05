@@ -220,25 +220,40 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           city: string | null
+          country: string | null
           created_at: string
           display_name: string | null
+          full_name: string | null
           id: string
+          preferred_method: string | null
           updated_at: string
+          username: string | null
         }
         Insert: {
+          avatar_url?: string | null
           city?: string | null
+          country?: string | null
           created_at?: string
           display_name?: string | null
+          full_name?: string | null
           id: string
+          preferred_method?: string | null
           updated_at?: string
+          username?: string | null
         }
         Update: {
+          avatar_url?: string | null
           city?: string | null
+          country?: string | null
           created_at?: string
           display_name?: string | null
+          full_name?: string | null
           id?: string
+          preferred_method?: string | null
           updated_at?: string
+          username?: string | null
         }
         Relationships: []
       }
@@ -295,6 +310,27 @@ export type Database = {
           minutes_read?: number
           read_date?: string
           surah?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      quran_reading_state: {
+        Row: {
+          ayah: number
+          surah: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ayah?: number
+          surah?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ayah?: number
+          surah?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
