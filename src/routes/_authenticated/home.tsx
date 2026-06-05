@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BookOpen, NotebookPen, Flame, Check, Heart, Sparkles, BarChart3 } from "lucide-react";
 import { hijriToday, gregorianToday } from "@/lib/hijri";
 import { usePrayerSettings, useNextPrayer, PRAYER_LABELS, fmt } from "@/lib/prayer-times";
+import { getAvatarUrl, initialsOf } from "@/lib/avatar";
 
 export const Route = createFileRoute("/_authenticated/home")({
   component: HomeScreen,
@@ -93,13 +94,18 @@ function HomeScreen() {
 
   return (
     <div className="px-5 pt-12 pb-6 space-y-5">
-      <header className="flex items-center justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">Assalāmu ʿalaykum</p>
-          <h1 className="mt-1 text-2xl font-semibold">{profileQ.data?.display_name ?? "Friend"}</h1>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">{gregorianToday()} · {hijriToday()}</p>
+      <header className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link to="/profile" className="h-12 w-12 shrink-0 rounded-2xl overflow-hidden hero-gradient grid place-items-center text-sm font-bold shadow-lg">
+            <Avatar profile={profileQ.data} email={undefined} />
+          </Link>
+          <div className="min-w-0">
+            <p className="text-xs uppercase tracking-widest text-muted-foreground truncate">Assalāmu ʿalaykum</p>
+            <h1 className="mt-0.5 text-xl font-semibold truncate">{profileQ.data?.display_name ?? profileQ.data?.full_name ?? "Friend"}</h1>
+            <p className="mt-0.5 text-[10px] text-muted-foreground truncate">{gregorianToday()} · {hijriToday()}</p>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 text-xs">
+        <div className="flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 text-xs shrink-0">
           <Flame className="h-3.5 w-3.5 text-accent" />
           <span className="font-semibold">{streakQ.data ?? 0}</span>
           <span className="text-muted-foreground">day</span>
@@ -191,4 +197,14 @@ function QuickTile({ to, icon: Icon, label, sub }: { to: string; icon: any; labe
       <p className="text-xs text-muted-foreground">{sub}</p>
     </Link>
   );
+}
+
+function Avatar({ profile }: { profile: any; email?: string }) {
+  const url = useQuery({
+    queryKey: ["avatar_url", profile?.avatar_url],
+    queryFn: () => getAvatarUrl(profile?.avatar_url),
+    enabled: !!profile?.avatar_url,
+  }).data;
+  if (url) return <img src={url} alt="" className="h-full w-full object-cover" />;
+  return <span>{initialsOf(profile?.display_name ?? profile?.full_name, profile?.id)}</span>;
 }
