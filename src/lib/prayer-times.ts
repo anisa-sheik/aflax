@@ -1,4 +1,4 @@
-import { CalculationMethod, Coordinates, PrayerTimes, SunnahTimes } from "adhan";
+import { CalculationMethod, Coordinates, PrayerTimes, SunnahTimes, HighLatitudeRule, Madhab } from "adhan";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -62,6 +62,16 @@ export function computeTimes(s: PrayerSettings | null | undefined, date = new Da
   if (!s || s.latitude == null || s.longitude == null) return null;
   const coords = new Coordinates(s.latitude, s.longitude);
   const params = methodParams(s.method);
+  params.madhab = Madhab.Shafi;
+  // Critical: at high latitudes (e.g. Scandinavia, UK, Canada) the sun does not
+  // dip enough for true Fajr/Isha angles. Apply the recommended rule so the
+  // times match trusted services like IslamicFinder / Aladhan.
+  const absLat = Math.abs(s.latitude);
+  if (absLat >= 48) {
+    params.highLatitudeRule = HighLatitudeRule.TwilightAngle;
+  } else {
+    params.highLatitudeRule = HighLatitudeRule.MiddleOfTheNight;
+  }
   params.adjustments = {
     fajr: s.fajr_offset, sunrise: 0, dhuhr: s.dhuhr_offset, asr: s.asr_offset,
     maghrib: s.maghrib_offset, isha: s.isha_offset,
