@@ -198,3 +198,13 @@ function QuickTile({ to, icon: Icon, label, sub }: { to: string; icon: any; labe
     </Link>
   );
 }
+
+function Avatar({ profile }: { profile: any; email?: string }) {
+  const url = useQuery({
+    queryKey: ["avatar_url", profile?.avatar_url],
+    queryFn: () => getAvatarUrl(profile?.avatar_url),
+    enabled: !!profile?.avatar_url,
+  }).data;
+  if (url) return <img src={url} alt="" className="h-full w-full object-cover" />;
+  return <span>{initialsOf(profile?.display_name ?? profile?.full_name, profile?.id)}</span>;
+}
