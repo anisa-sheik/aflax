@@ -1,14 +1,12 @@
-// Lightweight Qur'an API client (alquran.cloud) — no auth required.
-// Editions:
-//  - quran-uthmani: Arabic text (Uthmani script)
-//  - en.sahih: Sahih International (English)
-//  - sv.bernstrom: Swedish (closest publicly available Scandinavian translation;
-//    used as a Danish fallback because no Danish Qur'an translation is exposed
-//    by major public APIs)
+// Lightweight Qur'an API client (alquran.cloud) — Arabic only.
+// We fetch the tajweed-annotated edition and derive plain Uthmani text from it,
+// so the reader can toggle tajweed colors without a second request.
+
+import { tajweedToHtml, tajweedToPlain } from "./quran-tajweed";
 
 export type Surah = {
   number: number;
-  name: string;             // Arabic
+  name: string;
   englishName: string;
   englishNameTranslation: string;
   numberOfAyahs: number;
@@ -16,12 +14,10 @@ export type Surah = {
 };
 
 export type Ayah = {
-  number: number;            // global ayah number
+  number: number;
   numberInSurah: number;
-  text: string;
-  arabic: string;
-  english: string;
-  scandinavian: string;
+  arabic: string;        // plain Uthmani
+  tajweedHtml: string;   // safe HTML with <span class="tj tj-x">…</span>
 };
 
 const BASE = "https://api.alquran.cloud/v1";
@@ -38,17 +34,13 @@ export async function fetchSurahs(): Promise<Surah[]> {
 const _ayahCache = new Map<number, Ayah[]>();
 export async function fetchSurahAyahs(surah: number): Promise<Ayah[]> {
   if (_ayahCache.has(surah)) return _ayahCache.get(surah)!;
-  const editions = ["quran-uthmani", "en.sahih", "sv.bernstrom"].join(",");
-  const r = await fetch(`${BASE}/surah/${surah}/editions/${editions}`);
+  const r = await fetch(`${BASE}/surah/${surah}/quran-tajweed`);
   const j = await r.json();
-  const [ar, en, sv] = j.data as any[];
-  const list: Ayah[] = ar.ayahs.map((a: any, i: number) => ({
+  const list: Ayah[] = (j.data.ayahs as any[]).map((a) => ({
     number: a.number,
     numberInSurah: a.numberInSurah,
-    text: a.text,
-    arabic: a.text,
-    english: en?.ayahs?.[i]?.text ?? "",
-    scandinavian: sv?.ayahs?.[i]?.text ?? "",
+    arabic: tajweedToPlain(a.text),
+    tajweedHtml: tajweedToHtml(a.text),
   }));
   _ayahCache.set(surah, list);
   return list;
