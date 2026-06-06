@@ -1,16 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { BookOpen, NotebookPen, Flame, Check, Heart, Sparkles, BarChart3 } from "lucide-react";
+import { BookOpen, Flame, Check, Sparkles, ArrowRight, Heart, ClipboardCheck, MapPin } from "lucide-react";
 import { hijriToday, gregorianToday } from "@/lib/hijri";
-import { usePrayerSettings, useNextPrayer, PRAYER_LABELS, fmt } from "@/lib/prayer-times";
+import { usePrayerSettings, useNextPrayer, PRAYER_LABELS, PRAYER_ARABIC, fmt } from "@/lib/prayer-times";
 import { getAvatarUrl, initialsOf } from "@/lib/avatar";
+import { ProgressRing } from "@/components/ProgressRing";
 
 export const Route = createFileRoute("/_authenticated/home")({
   component: HomeScreen,
 });
 
 const LOGGABLE = ["fajr", "dhuhr", "asr", "maghrib", "isha"] as const;
+const DAILY_AYAH_GOAL = 20;
 
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 
@@ -43,15 +45,36 @@ function HomeScreen() {
     },
   });
 
-  const streakQ = useQuery({
-    queryKey: ["streak"],
+  const prayerStreakQ = useQuery({
+    queryKey: ["streak_prayer"],
+    queryFn: async () => streakFrom(await fetchDates("prayer_logs", "prayer_date")),
+  });
+
+  const quranStreakQ = useQuery({
+    queryKey: ["streak_quran"],
+    queryFn: async () => streakFrom(await fetchDates("quran_progress", "read_date")),
+  });
+
+  const goalsQ = useQuery({
+    queryKey: ["goals_today"],
+    queryFn: async () => (await supabase.from("goals").select("*")).data ?? [],
+  });
+
+  const quranTodayQ = useQuery({
+    queryKey: ["quran_today_count"],
     queryFn: async () => {
-      const { data } = await supabase.from("prayer_logs").select("prayer_date").order("prayer_date", { ascending: false }).limit(200);
-      const dates = new Set((data ?? []).map((r: any) => r.prayer_date));
-      let streak = 0;
-      const d = new Date();
-      while (dates.has(d.toISOString().slice(0, 10))) { streak++; d.setDate(d.getDate() - 1); }
-      return streak;
+      const { data } = await supabase.from("quran_progress").select("ayah").eq("read_date", todayISO());
+      return (data ?? []).reduce((a, r: any) => a + (r.ayah ?? 0), 0);
+    },
+  });
+
+  const dhikrTodayQ = useQuery({
+    queryKey: ["dhikr_today"],
+    queryFn: async () => {
+      const { data } = await supabase.from("dhikr_sessions").select("count, target").eq("session_date", todayISO());
+      const sum = (data ?? []).reduce((a, r: any) => a + (r.count ?? 0), 0);
+      const target = (data ?? []).reduce((a, r: any) => a + (r.target ?? 0), 0);
+      return { sum, target: target || 100 };
     },
   });
 
@@ -62,85 +85,110 @@ function HomeScreen() {
       if (exists) await supabase.from("prayer_logs").delete().eq("id", exists.id);
       else await supabase.from("prayer_logs").insert({ user_id: user!.id, prayer_name: key, prayer_date: todayISO(), status: "on_time" });
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["prayer_logs"] }); qc.invalidateQueries({ queryKey: ["streak"] }); },
-  });
-
-  const toggleCheckin = useMutation({
-    mutationFn: async (field: "quran_done" | "dhikr_done" | "dua_done") => {
-      const { data: { user } } = await supabase.auth.getUser();
-      const cur = checkinQ.data as any;
-      const newVal = !(cur?.[field] ?? false);
-      await supabase.from("daily_checkins").upsert({
-        user_id: user!.id,
-        checkin_date: todayISO(),
-        quran_done: field === "quran_done" ? newVal : (cur?.quran_done ?? false),
-        dhikr_done: field === "dhikr_done" ? newVal : (cur?.dhikr_done ?? false),
-        dua_done: field === "dua_done" ? newVal : (cur?.dua_done ?? false),
-      }, { onConflict: "user_id,checkin_date" });
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["checkin"] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["prayer_logs"] }); qc.invalidateQueries({ queryKey: ["streak_prayer"] }); },
   });
 
   const done = logsQ.data?.length ?? 0;
-  const pct = Math.round((done / 5) * 100);
-  const c = checkinQ.data as any;
-  const checklist = [
-    { key: "quran_done" as const, label: "Qur'an", icon: BookOpen, done: c?.quran_done },
-    { key: "dhikr_done" as const, label: "Dhikr", icon: Sparkles, done: c?.dhikr_done },
-    { key: "dua_done" as const, label: "Daily duʿāʾ", icon: Heart, done: c?.dua_done },
-  ];
-  const checklistDone = checklist.filter(x => x.done).length;
-  const overall = Math.round(((done + checklistDone) / 8) * 100);
+  const prayerPct = Math.round((done / 5) * 100);
+
+  const quranAyat = quranTodayQ.data ?? 0;
+  const quranPct = Math.min(100, Math.round((quranAyat / DAILY_AYAH_GOAL) * 100));
+
+  const dhikr = dhikrTodayQ.data ?? { sum: 0, target: 100 };
+  const dhikrPct = Math.min(100, Math.round((dhikr.sum / Math.max(1, dhikr.target)) * 100));
+
+  const goals = goalsQ.data ?? [];
+  const goalsDone = goals.filter((g: any) => g.done || g.progress >= g.target).length;
+  const goalsPct = goals.length ? Math.round((goalsDone / goals.length) * 100) : 0;
 
   return (
-    <div className="px-5 pt-12 pb-6 space-y-5">
+    <div className="px-5 pt-12 pb-6 space-y-6">
+      {/* ─── Header ─── */}
       <header className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <Link to="/profile" className="h-12 w-12 shrink-0 rounded-2xl overflow-hidden hero-gradient grid place-items-center text-sm font-bold shadow-lg">
-            <Avatar profile={profileQ.data} email={undefined} />
+            <Avatar profile={profileQ.data} />
           </Link>
           <div className="min-w-0">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground truncate">Assalāmu ʿalaykum</p>
-            <h1 className="mt-0.5 text-xl font-semibold truncate">{profileQ.data?.display_name ?? profileQ.data?.full_name ?? "Friend"}</h1>
-            <p className="mt-0.5 text-[10px] text-muted-foreground truncate">{gregorianToday()} · {hijriToday()}</p>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Assalāmu ʿalaykum</p>
+            <h1 className="mt-0.5 font-display text-xl font-semibold truncate">
+              {profileQ.data?.display_name ?? profileQ.data?.full_name ?? "Friend"}
+            </h1>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 text-xs shrink-0">
+        <Link to="/profile" className="flex items-center gap-1.5 rounded-full glass-soft px-3 py-1.5 text-xs shrink-0">
           <Flame className="h-3.5 w-3.5 text-accent" />
-          <span className="font-semibold">{streakQ.data ?? 0}</span>
-          <span className="text-muted-foreground">day</span>
-        </div>
+          <span className="font-semibold tabular-nums">{prayerStreakQ.data ?? 0}</span>
+        </Link>
       </header>
 
-      <section className="hero-gradient rounded-3xl p-6 shadow-2xl shadow-primary/30">
-        <p className="text-xs uppercase tracking-widest opacity-70">Next prayer</p>
-        <div className="mt-2 flex items-end justify-between">
-          <div>
-            <h2 className="text-4xl font-bold">{np ? PRAYER_LABELS[np.next.key] : "—"}</h2>
-            <p className="mt-1 text-sm opacity-80">{np ? `at ${fmt(np.next.at)}` : "Set your location"}</p>
+      <p className="text-[11px] text-muted-foreground -mt-3">
+        {gregorianToday()} <span className="opacity-50">·</span> {hijriToday()}
+      </p>
+
+      {/* ─── Hero: next prayer ─── */}
+      <section className="hero-gradient rounded-[28px] p-6 shadow-2xl shadow-primary/30 relative overflow-hidden">
+        <div className="absolute -top-12 -right-12 h-44 w-44 rounded-full bg-white/15 blur-3xl" />
+        <div className="relative">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-[0.25em] opacity-80">Next prayer</p>
+            {settingsQ.data?.city && (
+              <span className="inline-flex items-center gap-1 text-[10px] opacity-80">
+                <MapPin className="h-3 w-3" /> {settingsQ.data.city}
+              </span>
+            )}
           </div>
-          <div className="text-right">
-            <p className="text-xs uppercase opacity-70">in</p>
-            <p className="font-mono text-2xl font-bold tabular-nums">{np?.countdown ?? "--:--:--"}</p>
+          <div className="mt-3 flex items-end justify-between">
+            <div>
+              <h2 className="font-display text-5xl font-bold leading-none">{np ? PRAYER_LABELS[np.next.key] : "—"}</h2>
+              <p className="mt-2 font-quran text-2xl opacity-90">{np ? PRAYER_ARABIC[np.next.key] : ""}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] uppercase opacity-70">in</p>
+              <p className="font-mono text-2xl font-bold tabular-nums">{np?.countdown ?? "--:--:--"}</p>
+              <p className="text-xs opacity-80 mt-1">at {np ? fmt(np.next.at) : "—"}</p>
+            </div>
+          </div>
+          <div className="mt-5 flex items-center gap-3 text-[11px]">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-black/25 px-2.5 py-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+              Current: {np ? PRAYER_LABELS[np.current.key] : "—"}
+            </span>
+            <Link to="/prayer" className="ml-auto inline-flex items-center gap-1 opacity-90">
+              All times <ArrowRight className="h-3 w-3" />
+            </Link>
           </div>
         </div>
-        <div className="mt-4 h-1.5 rounded-full bg-black/20 overflow-hidden">
-          <div className="h-full bg-white/80 transition-all" style={{ width: `${overall}%` }} />
-        </div>
-        <p className="mt-1.5 text-xs opacity-80">Today {overall}% complete</p>
       </section>
 
+      {/* ─── Progress rings ─── */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold">Today's progress</h3>
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            {Math.round((prayerPct + quranPct + dhikrPct + goalsPct) / 4)}%
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <RingTile label="Prayer" value={prayerPct} caption={`${done}/5`} tint="primary" />
+          <RingTile label="Qur'an" value={quranPct} caption={`${quranAyat}/${DAILY_AYAH_GOAL} ayāt`} tint="accent" />
+          <RingTile label="Dhikr" value={dhikrPct} caption={`${dhikr.sum}/${dhikr.target}`} tint="primary" />
+          <RingTile label="Goals" value={goalsPct} caption={`${goalsDone}/${goals.length || 0}`} tint="accent" />
+        </div>
+      </section>
+
+      {/* ─── Prayer pills ─── */}
       <section className="glass-card rounded-3xl p-5">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">Today's prayers</h3>
-          <span className="text-xs text-muted-foreground">{done}/5 · {pct}%</span>
+          <span className="text-xs text-muted-foreground">{done}/5</span>
         </div>
         <div className="mt-4 grid grid-cols-5 gap-2">
           {LOGGABLE.map((k) => {
             const isDone = logsQ.data?.some((l: any) => l.prayer_name === k);
             return (
               <button key={k} onClick={() => togglePrayer.mutate(k)}
-                className={`flex flex-col items-center gap-1.5 rounded-2xl py-2.5 transition ${isDone ? "bg-primary/20 text-primary" : "bg-surface text-muted-foreground"}`}>
+                className={`flex flex-col items-center gap-1.5 rounded-2xl py-2.5 transition active:scale-95 ${isDone ? "bg-primary/20 text-primary" : "bg-surface text-muted-foreground"}`}>
                 <span className={`grid h-7 w-7 place-items-center rounded-full ${isDone ? "bg-primary text-primary-foreground" : "border border-border"}`}>
                   {isDone ? <Check className="h-3.5 w-3.5" /> : null}
                 </span>
@@ -151,55 +199,84 @@ function HomeScreen() {
         </div>
       </section>
 
-
-      <section className="glass-card rounded-3xl p-5">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Daily check-in</h3>
-          <span className="text-xs text-muted-foreground">{checklistDone}/3</span>
-        </div>
-        <div className="mt-3 space-y-2">
-          {checklist.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button key={item.key} onClick={() => toggleCheckin.mutate(item.key)}
-                className={`w-full rounded-2xl p-3 flex items-center gap-3 transition ${item.done ? "bg-primary/15 border border-primary/30" : "bg-surface"}`}>
-                <div className={`grid h-9 w-9 place-items-center rounded-xl ${item.done ? "bg-primary text-primary-foreground" : "bg-surface-elevated text-primary"}`}>
-                  {item.done ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
-                </div>
-                <span className="flex-1 text-left text-sm font-semibold">{item.label}</span>
-                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{item.done ? "Done" : "Tap"}</span>
-              </button>
-            );
-          })}
+      {/* ─── Streaks ─── */}
+      <section>
+        <h3 className="text-sm font-semibold mb-3">Streaks</h3>
+        <div className="grid grid-cols-3 gap-3">
+          <StreakCard icon={Flame} label="Prayer" days={prayerStreakQ.data ?? 0} />
+          <StreakCard icon={BookOpen} label="Qur'an" days={quranStreakQ.data ?? 0} />
+          <StreakCard icon={Sparkles} label="Goals" days={goalsDone > 0 ? 1 : 0} />
         </div>
       </section>
 
+      {/* ─── Quick actions ─── */}
       <section>
-        <h3 className="mb-3 text-sm font-semibold text-muted-foreground">Quick actions</h3>
+        <h3 className="text-sm font-semibold mb-3">Quick actions</h3>
         <div className="grid grid-cols-2 gap-3">
-          <QuickTile to="/quran" icon={BookOpen} label="Read Qur'an" sub="Open last surah" />
-          <QuickTile to="/goals" icon={Sparkles} label="Log dhikr" sub="Add a session" />
-          <QuickTile to="/goals" icon={NotebookPen} label="Journal" sub="Reflect today" />
-          <QuickTile to="/goals" icon={BarChart3} label="Analytics" sub="See your week" />
+          <QuickTile to="/quran" icon={BookOpen} label="Continue Qur'an" sub={`${quranAyat} ayāt today`} tint="primary" />
+          <QuickTile to="/goals" icon={Sparkles} label="Add Dhikr" sub={`${dhikr.sum} of ${dhikr.target}`} tint="accent" />
+          <QuickTile to="/prayer" icon={Heart} label="Mark Prayer" sub={`${done}/5 today`} tint="primary" />
+          <QuickTile to="/goals" icon={ClipboardCheck} label="Daily Check-in" sub={(checkinQ.data as any)?.dua_done ? "Done" : "Tap to log"} tint="accent" />
         </div>
       </section>
     </div>
   );
 }
 
-function QuickTile({ to, icon: Icon, label, sub }: { to: string; icon: any; label: string; sub: string }) {
+/* ───────── helpers ───────── */
+
+async function fetchDates(table: "prayer_logs" | "quran_progress", col: "prayer_date" | "read_date"): Promise<string[]> {
+  const { data } = await supabase.from(table).select(col).order(col, { ascending: false }).limit(300);
+  return (data ?? []).map((r: any) => r[col]);
+}
+function streakFrom(dates: string[]): number {
+  const set = new Set(dates);
+  let s = 0; const d = new Date();
+  while (set.has(d.toISOString().slice(0, 10))) { s++; d.setDate(d.getDate() - 1); }
+  return s;
+}
+
+function RingTile({ label, value, caption, tint }: { label: string; value: number; caption: string; tint: "primary" | "accent" }) {
+  const ring = tint === "accent" ? "stroke-accent" : "stroke-primary";
+  return (
+    <div className="glass-card rounded-2xl p-4 flex items-center gap-3">
+      <ProgressRing value={value} size={56} stroke={6} ringClassName={ring}>
+        <span className="text-[11px] font-bold tabular-nums">{value}%</span>
+      </ProgressRing>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold truncate">{label}</p>
+        <p className="text-[11px] text-muted-foreground truncate">{caption}</p>
+      </div>
+    </div>
+  );
+}
+
+function StreakCard({ icon: Icon, label, days }: { icon: any; label: string; days: number }) {
+  return (
+    <div className="glass-card rounded-2xl p-4 text-center">
+      <div className="mx-auto grid h-10 w-10 place-items-center rounded-xl bg-accent/20 text-accent">
+        <Icon className="h-5 w-5" />
+      </div>
+      <p className="mt-2 text-2xl font-bold tabular-nums">{days}</p>
+      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+function QuickTile({ to, icon: Icon, label, sub, tint }: { to: string; icon: any; label: string; sub: string; tint: "primary" | "accent" }) {
+  const cls = tint === "accent" ? "bg-accent/15 text-accent" : "bg-primary/15 text-primary";
   return (
     <Link to={to} className="glass-card rounded-2xl p-4 active:scale-[0.98] transition">
-      <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/15 text-primary">
+      <div className={`grid h-10 w-10 place-items-center rounded-xl ${cls}`}>
         <Icon className="h-5 w-5" />
       </div>
       <p className="mt-3 text-sm font-semibold">{label}</p>
-      <p className="text-xs text-muted-foreground">{sub}</p>
+      <p className="text-xs text-muted-foreground truncate">{sub}</p>
     </Link>
   );
 }
 
-function Avatar({ profile }: { profile: any; email?: string }) {
+function Avatar({ profile }: { profile: any }) {
   const url = useQuery({
     queryKey: ["avatar_url", profile?.avatar_url],
     queryFn: () => getAvatarUrl(profile?.avatar_url),

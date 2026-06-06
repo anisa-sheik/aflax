@@ -2,13 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Bookmark, ChevronLeft, Search, Trash2, Play, Loader2, ArrowRight } from "lucide-react";
-import { toast } from "sonner";
+import { Bookmark, ChevronLeft, Search, Trash2, Loader2, ArrowRight, Sparkles, Type, Minus, Plus } from "lucide-react";
 import { fetchSurahs, fetchSurahAyahs, type Surah } from "@/lib/quran-api";
+import { ProgressRing } from "@/components/ProgressRing";
 
 export const Route = createFileRoute("/_authenticated/quran")({
   component: QuranScreen,
 });
+
+const DAILY_AYAH_GOAL = 20;
 
 function QuranScreen() {
   const [open, setOpen] = useState<{ surah: number; ayah?: number } | null>(null);
@@ -20,6 +22,8 @@ function QuranScreen() {
 }
 
 /* ───────────── Surah list ───────────── */
+
+function todayISO() { return new Date().toISOString().slice(0, 10); }
 
 function SurahList({ onOpen }: { onOpen: (surah: number, ayah?: number) => void }) {
   const qc = useQueryClient();
@@ -42,6 +46,16 @@ function SurahList({ onOpen }: { onOpen: (surah: number, ayah?: number) => void 
     queryFn: async () => (await supabase.from("quran_bookmarks").select("*").order("created_at", { ascending: false })).data ?? [],
   });
 
+  const progressQ = useQuery({
+    queryKey: ["quran_progress_today"],
+    queryFn: async () => (await supabase.from("quran_progress").select("*").eq("read_date", todayISO())).data ?? [],
+  });
+
+  const totalQ = useQuery({
+    queryKey: ["quran_progress_total"],
+    queryFn: async () => (await supabase.from("quran_progress").select("ayah, surah, read_date")).data ?? [],
+  });
+
   const delBm = useMutation({
     mutationFn: async (id: string) => { await supabase.from("quran_bookmarks").delete().eq("id", id); },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["quran_bookmarks"] }),
@@ -61,24 +75,56 @@ function SurahList({ onOpen }: { onOpen: (surah: number, ayah?: number) => void 
   const last = stateQ.data;
   const lastSurah = last ? (surahsQ.data ?? []).find(s => s.number === last.surah) : null;
 
+  const ayahsToday = (progressQ.data ?? []).reduce((acc: number, r: any) => acc + (r.ayah ?? 0), 0);
+  const goalPct = Math.min(100, Math.round((ayahsToday / DAILY_AYAH_GOAL) * 100));
+
+  // streak: consecutive days with progress
+  const streak = useMemo(() => {
+    const dates = new Set((totalQ.data ?? []).map((r: any) => r.read_date));
+    let s = 0; const d = new Date();
+    while (dates.has(d.toISOString().slice(0, 10))) { s++; d.setDate(d.getDate() - 1); }
+    return s;
+  }, [totalQ.data]);
+
+  // unique surahs touched as a "khatm" proxy
+  const surahsTouched = useMemo(() => new Set((totalQ.data ?? []).map((r: any) => r.surah)).size, [totalQ.data]);
+
   return (
     <div className="px-5 pt-12 pb-6 space-y-5">
       <header>
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Qur'an</p>
-        <h1 className="mt-1 text-2xl font-semibold">القرآن الكريم</h1>
+        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Qur'an</p>
+        <h1 className="mt-1 font-display text-3xl font-semibold">القرآن الكريم</h1>
       </header>
+
+      {/* Daily goal hero */}
+      <section className="glass-card rounded-3xl p-5 flex items-center gap-5">
+        <ProgressRing value={goalPct} size={84} stroke={8}>
+          <div className="text-center">
+            <p className="text-lg font-bold leading-none">{ayahsToday}</p>
+            <p className="text-[9px] uppercase tracking-widest text-muted-foreground mt-0.5">ayāt</p>
+          </div>
+        </ProgressRing>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Daily goal</p>
+          <p className="mt-0.5 text-sm font-semibold">{ayahsToday} of {DAILY_AYAH_GOAL} ayāt</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Stat label="Streak" value={`${streak}d`} />
+            <Stat label="Surahs" value={`${surahsTouched}/114`} />
+          </div>
+        </div>
+      </section>
 
       {last && (
         <button onClick={() => onOpen(last.surah, last.ayah)}
-          className="w-full hero-gradient rounded-3xl p-5 text-left shadow-2xl shadow-primary/30">
-          <p className="text-xs uppercase tracking-widest opacity-80">Continue reading</p>
-          <div className="mt-2 flex items-end justify-between">
-            <div>
-              <p className="text-2xl font-bold">{lastSurah?.englishName ?? `Surah ${last.surah}`}</p>
+          className="w-full hero-gradient rounded-3xl p-5 text-left shadow-2xl shadow-primary/30 active:scale-[0.99] transition">
+          <p className="text-[10px] uppercase tracking-[0.2em] opacity-80">Continue reading</p>
+          <div className="mt-2 flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-display text-2xl font-bold truncate">{lastSurah?.englishName ?? `Surah ${last.surah}`}</p>
               <p className="text-sm opacity-80">Ayah {last.ayah}</p>
             </div>
-            <div className="grid h-11 w-11 place-items-center rounded-full bg-black/25">
-              <Play className="h-5 w-5" />
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-black/30">
+              <ArrowRight className="h-5 w-5" />
             </div>
           </div>
         </button>
@@ -99,7 +145,7 @@ function SurahList({ onOpen }: { onOpen: (surah: number, ayah?: number) => void 
               className="flex-1 h-11 bg-transparent text-sm outline-none" />
           </div>
 
-          {surahsQ.isLoading && <p className="text-center text-xs text-muted-foreground py-8"><Loader2 className="h-4 w-4 animate-spin inline" /> Loading surahs…</p>}
+          {surahsQ.isLoading && <p className="text-center text-xs text-muted-foreground py-8"><Loader2 className="h-4 w-4 animate-spin inline" /> Loading…</p>}
 
           <ul className="space-y-1.5">
             {filtered.map(s => (
@@ -107,11 +153,11 @@ function SurahList({ onOpen }: { onOpen: (surah: number, ayah?: number) => void 
                 <button onClick={() => onOpen(s.number)}
                   className="w-full glass-card rounded-2xl p-3 flex items-center gap-3 active:scale-[0.99] transition">
                   <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/15 text-primary font-semibold text-sm">{s.number}</div>
-                  <div className="flex-1 text-left">
-                    <p className="text-sm font-semibold">{s.englishName}</p>
-                    <p className="text-[11px] text-muted-foreground">{s.englishNameTranslation} · {s.numberOfAyahs} ayāt · {s.revelationType}</p>
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-sm font-semibold truncate">{s.englishName}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{s.englishNameTranslation} · {s.numberOfAyahs} ayāt · {s.revelationType}</p>
                   </div>
-                  <p className="font-display text-xl">{s.name}</p>
+                  <p className="font-quran text-2xl shrink-0">{s.name}</p>
                 </button>
               </li>
             ))}
@@ -125,11 +171,9 @@ function SurahList({ onOpen }: { onOpen: (surah: number, ayah?: number) => void 
             const s = (surahsQ.data ?? []).find(x => x.number === b.surah);
             return (
               <li key={b.id} className="glass-card rounded-2xl p-3 flex items-center gap-3">
-                <button onClick={() => onOpen(b.surah, b.ayah)} className="flex-1 text-left">
-                  <p className="text-sm font-semibold">{s?.englishName ?? `Surah ${b.surah}`} · Ayah {b.ayah}</p>
-                  {b.note && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{b.note}</p>}
+                <button onClick={() => onOpen(b.surah, b.ayah)} className="flex-1 text-left min-w-0">
+                  <p className="text-sm font-semibold truncate">{s?.englishName ?? `Surah ${b.surah}`} · Ayah {b.ayah}</p>
                 </button>
-                <ArrowRight className="h-4 w-4 text-muted-foreground" />
                 <button onClick={() => delBm.mutate(b.id)} className="grid h-8 w-8 place-items-center rounded-xl bg-surface">
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </button>
@@ -145,11 +189,29 @@ function SurahList({ onOpen }: { onOpen: (surah: number, ayah?: number) => void 
   );
 }
 
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-surface/60 px-3 py-2">
+      <p className="text-[9px] uppercase tracking-widest text-muted-foreground">{label}</p>
+      <p className="text-sm font-semibold mt-0.5">{value}</p>
+    </div>
+  );
+}
+
 /* ───────────── Reader ───────────── */
 
 function Reader({ surah, initialAyah, onBack }: { surah: number; initialAyah: number; onBack: () => void }) {
   const qc = useQueryClient();
-  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [fontSize, setFontSize] = useState<number>(() => {
+    const v = typeof window !== "undefined" ? localStorage.getItem("quran_fs") : null;
+    return v ? Number(v) : 30;
+  });
+  const [tajweed, setTajweed] = useState<boolean>(() => {
+    const v = typeof window !== "undefined" ? localStorage.getItem("quran_tj") : null;
+    return v ? v === "1" : true;
+  });
+  useEffect(() => { localStorage.setItem("quran_fs", String(fontSize)); }, [fontSize]);
+  useEffect(() => { localStorage.setItem("quran_tj", tajweed ? "1" : "0"); }, [tajweed]);
 
   const surahsQ = useQuery({ queryKey: ["surahs"], queryFn: fetchSurahs, staleTime: Infinity });
   const meta: Surah | undefined = (surahsQ.data ?? []).find(s => s.number === surah);
@@ -164,10 +226,15 @@ function Reader({ surah, initialAyah, onBack }: { surah: number; initialAyah: nu
     queryKey: ["quran_bookmarks"],
     queryFn: async () => (await supabase.from("quran_bookmarks").select("*")).data ?? [],
   });
-  const bmSet = useMemo(() => new Set((bookmarksQ.data ?? []).filter((b: any) => b.surah === surah).map((b: any) => b.ayah)), [bookmarksQ.data, surah]);
+  const bmSet = useMemo(
+    () => new Set((bookmarksQ.data ?? []).filter((b: any) => b.surah === surah).map((b: any) => b.ayah)),
+    [bookmarksQ.data, surah],
+  );
 
-  // Persist last read position (debounced via current ayah tracking)
   const [currentAyah, setCurrentAyah] = useState(initialAyah);
+  const maxReachedRef = useRef(initialAyah);
+
+  // Persist last-read + log reading progress for today
   useEffect(() => {
     const t = setTimeout(async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -175,19 +242,29 @@ function Reader({ surah, initialAyah, onBack }: { surah: number; initialAyah: nu
       await supabase.from("quran_reading_state").upsert({
         user_id: user.id, surah, ayah: currentAyah, updated_at: new Date().toISOString(),
       }, { onConflict: "user_id" });
+
+      const newMax = Math.max(maxReachedRef.current, currentAyah);
+      if (newMax > maxReachedRef.current) {
+        const delta = newMax - maxReachedRef.current;
+        maxReachedRef.current = newMax;
+        // Insert daily session row capturing how many ayāt advanced
+        await supabase.from("quran_progress").insert({
+          user_id: user.id, surah, ayah: delta, read_date: todayISO(),
+        });
+        qc.invalidateQueries({ queryKey: ["quran_progress_today"] });
+        qc.invalidateQueries({ queryKey: ["quran_progress_total"] });
+      }
       qc.invalidateQueries({ queryKey: ["quran_state"] });
-    }, 800);
+    }, 1200);
     return () => clearTimeout(t);
   }, [surah, currentAyah, qc]);
 
-  // Scroll to initial ayah once loaded
   useEffect(() => {
     if (!ayahsQ.data) return;
     const el = document.getElementById(`ayah-${initialAyah}`);
     if (el) setTimeout(() => el.scrollIntoView({ behavior: "auto", block: "start" }), 50);
   }, [ayahsQ.data, initialAyah]);
 
-  // Track which ayah is in view
   useEffect(() => {
     if (!ayahsQ.data) return;
     const obs = new IntersectionObserver(entries => {
@@ -196,7 +273,7 @@ function Reader({ surah, initialAyah, onBack }: { surah: number; initialAyah: nu
         const n = Number((visible.target as HTMLElement).dataset.ayah);
         if (n) setCurrentAyah(n);
       }
-    }, { threshold: [0.3, 0.6] });
+    }, { threshold: [0.4, 0.7] });
     document.querySelectorAll("[data-ayah]").forEach(el => obs.observe(el));
     return () => obs.disconnect();
   }, [ayahsQ.data]);
@@ -211,27 +288,62 @@ function Reader({ surah, initialAyah, onBack }: { surah: number; initialAyah: nu
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["quran_bookmarks"] }); },
   });
 
+  const total = meta?.numberOfAyahs ?? 1;
+  const pct = Math.round((currentAyah / total) * 100);
+
   return (
-    <div className="flex flex-col h-full">
-      <header className="sticky top-0 z-20 bg-background/85 backdrop-blur-xl border-b border-border px-4 pt-12 pb-3 flex items-center gap-3">
-        <button onClick={onBack} className="grid h-10 w-10 place-items-center rounded-xl bg-surface">
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <div className="flex-1">
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Surah {surah}</p>
-          <p className="text-sm font-semibold">{meta?.englishName ?? "…"} · <span className="font-display">{meta?.name ?? ""}</span></p>
+    <div className="quran-page flex flex-col h-full">
+      <header className="sticky top-0 z-20 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 pt-12 pb-3">
+        <div className="flex items-center gap-3">
+          <button onClick={onBack} className="grid h-10 w-10 place-items-center rounded-xl bg-surface/70">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Surah {surah}</p>
+            <p className="text-sm font-semibold truncate">
+              {meta?.englishName ?? "…"} · <span className="font-quran text-base">{meta?.name ?? ""}</span>
+            </p>
+          </div>
+          <button
+            onClick={() => setTajweed(v => !v)}
+            className={`grid h-10 w-10 place-items-center rounded-xl ${tajweed ? "bg-primary/20 text-primary" : "bg-surface/70 text-muted-foreground"}`}
+            title="Toggle tajweed colours"
+          >
+            <Sparkles className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setFontSize(s => Math.max(22, s - 2))}
+            className="grid h-10 w-10 place-items-center rounded-xl bg-surface/70"
+            title="Smaller text"
+          >
+            <Minus className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setFontSize(s => Math.min(48, s + 2))}
+            className="grid h-10 w-10 place-items-center rounded-xl bg-surface/70"
+            title="Larger text"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
         </div>
-        <span className="text-[11px] text-muted-foreground">Ayah {currentAyah}/{meta?.numberOfAyahs ?? "—"}</span>
+        <div className="mt-3 flex items-center gap-3">
+          <div className="flex-1 h-1 rounded-full bg-white/8 overflow-hidden">
+            <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+          </div>
+          <span className="text-[10px] tabular-nums text-muted-foreground">{currentAyah}/{total}</span>
+        </div>
       </header>
 
-      <div ref={scrollerRef} className="flex-1 px-4 py-4 space-y-3">
+      <div className="flex-1 px-5 py-6 space-y-5">
         {surah !== 1 && surah !== 9 && (
-          <p className="text-center font-display text-2xl py-4">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</p>
+          <p dir="rtl" className="text-center font-quran py-4" style={{ fontSize: fontSize + 6 }}>
+            بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+          </p>
         )}
 
         {ayahsQ.isLoading && (
-          <div className="py-12 text-center text-xs text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin inline" /> Loading ayahs…
+          <div className="py-16 text-center text-xs text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin inline" /> Loading…
           </div>
         )}
 
@@ -242,31 +354,46 @@ function Reader({ surah, initialAyah, onBack }: { surah: number; initialAyah: nu
         {(ayahsQ.data ?? []).map(a => {
           const isBm = bmSet.has(a.numberInSurah);
           return (
-            <article key={a.numberInSurah} id={`ayah-${a.numberInSurah}`} data-ayah={a.numberInSurah}
-              className="glass-card rounded-2xl p-4">
-              <div className="flex items-start justify-between gap-2">
-                <span className="grid h-7 w-7 place-items-center rounded-full bg-primary/15 text-primary text-xs font-bold">{a.numberInSurah}</span>
-                <button onClick={() => toggleBookmark.mutate(a.numberInSurah)} className="grid h-8 w-8 place-items-center rounded-lg bg-surface">
+            <article
+              key={a.numberInSurah}
+              id={`ayah-${a.numberInSurah}`}
+              data-ayah={a.numberInSurah}
+              className="group"
+            >
+              <p
+                dir="rtl"
+                lang="ar"
+                className="font-quran leading-[2.4] text-right text-foreground/95"
+                style={{ fontSize }}
+                dangerouslySetInnerHTML={{
+                  __html:
+                    (tajweed ? a.tajweedHtml : a.arabic) +
+                    ` <span class="inline-grid place-items-center align-middle h-8 w-8 mx-1 rounded-full bg-primary/15 text-primary text-[12px] font-sans font-semibold">${toArabicNumeral(a.numberInSurah)}</span>`,
+                }}
+              />
+              <div className="mt-3 flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition">
+                <button
+                  onClick={() => toggleBookmark.mutate(a.numberInSurah)}
+                  className="grid h-8 w-8 place-items-center rounded-lg bg-surface/70"
+                >
                   <Bookmark className={`h-4 w-4 ${isBm ? "fill-accent text-accent" : "text-muted-foreground"}`} />
                 </button>
               </div>
-              <p dir="rtl" lang="ar" className="mt-3 font-display text-2xl leading-[2.2] text-right">{a.arabic}</p>
-              {a.english && (
-                <p className="mt-3 text-sm text-foreground/90 leading-relaxed">{a.english}</p>
-              )}
-              {a.scandinavian && (
-                <p className="mt-2 text-sm text-muted-foreground italic leading-relaxed">{a.scandinavian}</p>
-              )}
+              <div className="mt-4 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
             </article>
           );
         })}
 
         {ayahsQ.data && (
-          <p className="text-center text-[10px] text-muted-foreground py-4">
-            Translations: English (Sahih Intl) · Swedish (Bernström) — used as Danish fallback
+          <p className="text-center text-[10px] text-muted-foreground py-6 flex items-center justify-center gap-1.5">
+            <Type className="h-3 w-3" /> Amiri Quran · Uthmani script
           </p>
         )}
       </div>
     </div>
   );
+}
+
+function toArabicNumeral(n: number): string {
+  return String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[+d]);
 }
