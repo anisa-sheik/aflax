@@ -35,6 +35,7 @@
   --color-surface-elevated: var(--surface-elevated);
   --font-display: "Fraunces", "Cormorant Garamond", ui-serif, Georgia, serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-quran: "Amiri Quran", "Scheherazade New", "Amiri", "Noto Naskh Arabic", serif;
 }
 
 :root {
@@ -95,13 +96,42 @@
     backdrop-filter: blur(12px);
     border: 1px solid oklch(0.5 0.04 170 / 0.25);
   }
+  .glass-soft {
+    background: oklch(0.3 0.03 175 / 0.55);
+    backdrop-filter: blur(18px);
+    border: 1px solid oklch(0.6 0.04 170 / 0.18);
+  }
   .hero-gradient {
-    background: linear-gradient(140deg, var(--color-primary), var(--color-primary-glow) 80%);
+    background:
+      radial-gradient(120% 80% at 0% 0%, oklch(0.55 0.16 80 / 0.55), transparent 60%),
+      linear-gradient(140deg, var(--color-primary), var(--color-primary-glow) 80%);
     color: var(--color-primary-foreground);
   }
-  .tab-active {
-    color: var(--color-primary);
-  }
+  .tab-active { color: var(--color-primary); }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { scrollbar-width: none; }
+
+  .font-quran { font-family: var(--font-quran); font-feature-settings: "calt", "liga"; }
+  .quran-page {
+    background:
+      radial-gradient(120% 70% at 50% 0%, oklch(0.32 0.04 165 / 0.4), transparent 70%),
+      linear-gradient(180deg, oklch(0.23 0.02 175), oklch(0.2 0.02 175));
+  }
+
+  .tj { transition: color .2s; }
+  .tj-h { color: #ef5a5a; }
+  .tj-s { color: oklch(0.55 0.02 175); }
+  .tj-l { color: oklch(0.55 0.02 175); }
+  .tj-n { color: #f4a93d; }
+  .tj-p { color: #c47bd6; }
+  .tj-m { color: #ef5a5a; }
+  .tj-q { color: #f4c441; font-weight: 700; }
+  .tj-o { color: #5aa6f4; }
+  .tj-i { color: #38bdb1; }
+  .tj-e { color: #38bdb1; }
+  .tj-a { color: #5aa6f4; }
+  .tj-c { color: #c47bd6; }
+  .tj-f { color: #6dd58c; }
+  .tj-w { color: #6dd58c; }
+  .tj-b { color: #5aa6f4; }
 }
