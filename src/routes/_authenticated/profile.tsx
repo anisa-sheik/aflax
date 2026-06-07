@@ -165,6 +165,11 @@ function ProfileScreen() {
         <StatCard icon={Flame} label="Dhikr" value={statsQ.data?.dhikr ?? 0} />
       </section>
 
+      <AchievementsSection />
+
+      <JourneyTimeline createdAt={profileQ.data?.profile?.created_at} userId={profileQ.data?.userId} />
+
+
       <section className="glass-card rounded-3xl p-5 space-y-3">
         <h3 className="text-sm font-semibold">Personal details</h3>
         <Field label="Full name" value={fullName} onChange={setFullName} placeholder="e.g. Ahmed Yusuf" />
