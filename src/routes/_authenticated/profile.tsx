@@ -225,3 +225,116 @@ function StatCard({ icon: Icon, label, value }: { icon: any; label: string; valu
     </div>
   );
 }
+
+/* ───────── Achievements ───────── */
+
+function AchievementsSection() {
+  const qc = useQueryClient();
+  const achQ = useQuery({
+    queryKey: ["user_achievements"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("user_achievements").select("code,unlocked_at")
+        .order("unlocked_at", { ascending: false });
+      return (data ?? []) as { code: AchievementCode; unlocked_at: string }[];
+    },
+  });
+
+  useEffect(() => {
+    syncAchievements().then(newly => {
+      if (newly.length) qc.invalidateQueries({ queryKey: ["user_achievements"] });
+    }).catch(() => {});
+  }, [qc]);
+
+  const unlockedMap = useMemo(() => {
+    const m = new Map<string, string>();
+    (achQ.data ?? []).forEach(r => m.set(r.code, r.unlocked_at));
+    return m;
+  }, [achQ.data]);
+
+  const unlockedCount = unlockedMap.size;
+  const tintCls = (t: string) =>
+    t === "amber"  ? "bg-amber-500/15 text-amber-400 ring-amber-500/30" :
+    t === "accent" ? "bg-accent/15 text-accent ring-accent/30" :
+                     "bg-primary/15 text-primary ring-primary/30";
+
+  return (
+    <section className="glass-card rounded-3xl p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold">Achievements</h3>
+          <p className="text-[11px] text-muted-foreground">{unlockedCount} of {ACHIEVEMENTS.length} unlocked</p>
+        </div>
+        <div className="h-1.5 w-20 rounded-full bg-white/10 overflow-hidden">
+          <div className="h-full bg-primary transition-all" style={{ width: `${(unlockedCount / ACHIEVEMENTS.length) * 100}%` }} />
+        </div>
+      </div>
+      <ul className="grid grid-cols-3 gap-2.5">
+        {ACHIEVEMENTS.map(a => {
+          const Icon = a.icon;
+          const unlocked = unlockedMap.has(a.code);
+          return (
+            <li
+              key={a.code}
+              title={`${a.title} — ${a.description}`}
+              className={`relative rounded-2xl p-3 flex flex-col items-center text-center transition ${unlocked ? "bg-surface/60" : "bg-surface/30 opacity-50"}`}
+            >
+              <span className={`grid h-10 w-10 place-items-center rounded-xl ring-1 ${unlocked ? tintCls(a.tint) : "bg-white/5 text-muted-foreground ring-border/40"}`}>
+                {unlocked ? <Icon className="h-5 w-5" /> : <Lock className="h-4 w-4" />}
+              </span>
+              <p className="mt-2 text-[11px] font-semibold leading-tight line-clamp-2">{a.title}</p>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/* ───────── Islamic Life Timeline ───────── */
+
+function JourneyTimeline({ createdAt, userId }: { createdAt?: string; userId?: string }) {
+  const tlQ = useQuery({
+    queryKey: ["journey_timeline", userId],
+    enabled: !!userId,
+    queryFn: async (): Promise<TimelineItem[]> => {
+      const [firstPrayer, firstQuran, firstBookmark, firstDhikr, firstGoal, achievements] = await Promise.all([
+        supabase.from("prayer_logs").select("prayer_date").order("prayer_date", { ascending: true }).limit(1).maybeSingle(),
+        supabase.from("quran_progress").select("read_date").order("read_date", { ascending: true }).limit(1).maybeSingle(),
+        supabase.from("quran_bookmarks").select("created_at").order("created_at", { ascending: true }).limit(1).maybeSingle(),
+        supabase.from("dhikr_sessions").select("created_at").order("created_at", { ascending: true }).limit(1).maybeSingle(),
+        supabase.from("goals").select("created_at,title").order("created_at", { ascending: true }).limit(1).maybeSingle(),
+        supabase.from("user_achievements").select("code,unlocked_at").order("unlocked_at", { ascending: true }),
+      ]);
+
+      const items: TimelineItem[] = [];
+      if (createdAt) items.push({ date: createdAt, title: "Joined Deen Planner Pro", description: "Your journey begins.", icon: Sparkles, tint: "primary" });
+      if (firstPrayer.data) items.push({ date: (firstPrayer.data as any).prayer_date, title: "First prayer logged", icon: Sunrise, tint: "primary" });
+      if (firstQuran.data) items.push({ date: (firstQuran.data as any).read_date, title: "Started reading the Qur'an", icon: BookOpen, tint: "accent" });
+      if (firstBookmark.data) items.push({ date: (firstBookmark.data as any).created_at, title: "First bookmark saved", icon: BookOpen, tint: "primary" });
+      if (firstDhikr.data) items.push({ date: (firstDhikr.data as any).created_at, title: "First dhikr session", icon: Sparkles, tint: "accent" });
+      if (firstGoal.data) items.push({ date: (firstGoal.data as any).created_at, title: `First goal: ${(firstGoal.data as any).title}`, icon: Flame, tint: "primary" });
+
+      const firstCodes = new Set(["joined","first_prayer","first_quran","first_bookmark","first_dhikr","first_goal"]);
+      for (const a of (achievements.data ?? []) as any[]) {
+        const def = ACHIEVEMENT_BY_CODE[a.code as AchievementCode];
+        if (!def || firstCodes.has(def.code)) continue;
+        items.push({ date: a.unlocked_at, title: def.title, description: def.description, icon: def.icon, tint: def.tint });
+      }
+
+      return items
+        .filter(x => x.date)
+        .sort((a, b) => +new Date(b.date) - +new Date(a.date));
+    },
+  });
+
+  return (
+    <section className="glass-card rounded-3xl p-5 space-y-3">
+      <div>
+        <h3 className="text-sm font-semibold">Your journey</h3>
+        <p className="text-[11px] text-muted-foreground">Milestones from your Islamic practice</p>
+      </div>
+      <Timeline items={tlQ.data ?? []} />
+    </section>
+  );
+}
