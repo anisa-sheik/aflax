@@ -23,6 +23,8 @@ function HomeScreen() {
   const settingsQ = usePrayerSettings();
   const np = useNextPrayer(settingsQ.data);
 
+  useEffect(() => { syncAchievements().catch(() => {}); }, []);
+
   const profileQ = useQuery({
     queryKey: ["profile"],
     queryFn: async () => {
