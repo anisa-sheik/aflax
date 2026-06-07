@@ -1,11 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { LogOut, Save, Camera, Trash2, Loader2, Flame, BookOpen, Compass } from "lucide-react";
+import { LogOut, Save, Camera, Trash2, Loader2, Flame, BookOpen, Compass, Lock, Sparkles, Sunrise } from "lucide-react";
 import { toast } from "sonner";
 import { getAvatarUrl, uploadAvatar, deleteAvatar, initialsOf } from "@/lib/avatar";
 import { METHODS, MethodKey } from "@/lib/prayer-times";
+import { ACHIEVEMENTS, ACHIEVEMENT_BY_CODE, syncAchievements, type AchievementCode } from "@/lib/achievements";
+import { Timeline, type TimelineItem } from "@/components/Timeline";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfileScreen,
