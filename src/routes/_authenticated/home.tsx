@@ -1,11 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BookOpen, Flame, Check, Sparkles, ArrowRight, Heart, ClipboardCheck, MapPin } from "lucide-react";
 import { hijriToday, gregorianToday } from "@/lib/hijri";
 import { usePrayerSettings, useNextPrayer, PRAYER_LABELS, PRAYER_ARABIC, fmt } from "@/lib/prayer-times";
 import { getAvatarUrl, initialsOf } from "@/lib/avatar";
 import { ProgressRing } from "@/components/ProgressRing";
+import { syncAchievements } from "@/lib/achievements";
 
 export const Route = createFileRoute("/_authenticated/home")({
   component: HomeScreen,
@@ -20,6 +22,8 @@ function HomeScreen() {
   const qc = useQueryClient();
   const settingsQ = usePrayerSettings();
   const np = useNextPrayer(settingsQ.data);
+
+  useEffect(() => { syncAchievements().catch(() => {}); }, []);
 
   const profileQ = useQuery({
     queryKey: ["profile"],

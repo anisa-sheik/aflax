@@ -473,6 +473,8 @@ function MushafMenu({
 
 /* ─────────────────────────────────────── Khatm tracker ─────────────────────────────────────── */
 
+import { Heatmap } from "@/components/Heatmap";
+
 function KhatmPanel({ currentPage }: { currentPage: number }) {
   const [goal, setGoal] = useState<number>(() => {
     const v = typeof window !== "undefined" ? localStorage.getItem(GOAL_KEY) : null;
@@ -480,8 +482,6 @@ function KhatmPanel({ currentPage }: { currentPage: number }) {
   });
   useEffect(() => { localStorage.setItem(GOAL_KEY, String(goal)); }, [goal]);
 
-  // pagesCompleted ≈ farthest page reached. We use reading_state surah → page mapping
-  // plus the current visible page as the floor.
   const stateQ = useQuery({
     queryKey: ["khatm_pages"],
     queryFn: async () => {
@@ -491,6 +491,21 @@ function KhatmPanel({ currentPage }: { currentPage: number }) {
         .from("quran_reading_state").select("surah,ayah").eq("user_id", user.id).maybeSingle();
       const reachedFromState = data ? (SURAH_START_PAGE[(data as any).surah] ?? 1) : 1;
       return { reached: Math.max(reachedFromState, currentPage) };
+    },
+  });
+
+  const heatmapQ = useQuery({
+    queryKey: ["quran_heatmap_365"],
+    queryFn: async () => {
+      const since = new Date(); since.setDate(since.getDate() - 365);
+      const { data } = await supabase
+        .from("quran_progress").select("ayah,read_date")
+        .gte("read_date", since.toISOString().slice(0, 10));
+      const map: Record<string, number> = {};
+      for (const r of (data ?? []) as any[]) {
+        map[r.read_date] = (map[r.read_date] ?? 0) + (r.ayah ?? 0);
+      }
+      return map;
     },
   });
 
@@ -517,6 +532,14 @@ function KhatmPanel({ currentPage }: { currentPage: number }) {
           <Stat tone="dark" label="Juz" value={`${Math.min(30, juzReached)}/30`} />
           <Stat tone="dark" label="Goal" value={`${goal}d`} />
         </div>
+      </div>
+
+      <div className="glass-card rounded-2xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold">Reading activity</p>
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Last 365 days</p>
+        </div>
+        <Heatmap data={heatmapQ.data ?? {}} tint="primary" />
       </div>
 
       <div className="glass-card rounded-2xl p-4 space-y-3">
