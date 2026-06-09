@@ -204,6 +204,8 @@ function PrayerSettings() {
     if (q.data) {
       const d = q.data as any;
       setMethod(d.method); setNotif(d.notifications);
+      setNotifyPrayers((d.notify_prayers as PrayerKey[]) ?? ["fajr","dhuhr","asr","maghrib","isha"]);
+      setNotifyBefore(d.notify_before_min ?? 0);
       setOffsets({ fajr: d.fajr_offset, dhuhr: d.dhuhr_offset, asr: d.asr_offset, maghrib: d.maghrib_offset, isha: d.isha_offset });
       setLoc({ latitude: d.latitude, longitude: d.longitude, city: d.city, country: d.country, timezone: d.timezone });
     }
