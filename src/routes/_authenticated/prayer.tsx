@@ -8,6 +8,7 @@ import {
   METHODS, MethodKey, PRAYER_KEYS, PRAYER_LABELS, PRAYER_ARABIC,
   usePrayerSettings, useNextPrayer, computeTimes, fmt,
   detectLocation, searchLocation, PrayerKey,
+  requestNotificationPermission,
 } from "@/lib/prayer-times";
 
 export const Route = createFileRoute("/_authenticated/prayer")({
@@ -189,6 +190,9 @@ function PrayerSettings() {
 
   const [method, setMethod] = useState<MethodKey>("MWL");
   const [notif, setNotif] = useState(false);
+  const [notifyPrayers, setNotifyPrayers] = useState<PrayerKey[]>(["fajr","dhuhr","asr","maghrib","isha"]);
+  const [notifyBefore, setNotifyBefore] = useState(0);
+  const [permission, setPermission] = useState<NotificationPermission>(typeof Notification !== "undefined" ? Notification.permission : "denied");
   const [offsets, setOffsets] = useState({ fajr: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0 });
   const [loc, setLoc] = useState<{ latitude: number | null; longitude: number | null; city: string | null; country: string | null; timezone: string | null }>({ latitude: null, longitude: null, city: null, country: null, timezone: null });
   const [search, setSearch] = useState("");
@@ -200,6 +204,8 @@ function PrayerSettings() {
     if (q.data) {
       const d = q.data as any;
       setMethod(d.method); setNotif(d.notifications);
+      setNotifyPrayers((d.notify_prayers as PrayerKey[]) ?? ["fajr","dhuhr","asr","maghrib","isha"]);
+      setNotifyBefore(d.notify_before_min ?? 0);
       setOffsets({ fajr: d.fajr_offset, dhuhr: d.dhuhr_offset, asr: d.asr_offset, maghrib: d.maghrib_offset, isha: d.isha_offset });
       setLoc({ latitude: d.latitude, longitude: d.longitude, city: d.city, country: d.country, timezone: d.timezone });
     }
@@ -210,12 +216,13 @@ function PrayerSettings() {
       const { data: { user } } = await supabase.auth.getUser();
       await supabase.from("prayer_settings").upsert({
         user_id: user!.id, method, notifications: notif,
+        notify_prayers: notifyPrayers, notify_before_min: notifyBefore,
         fajr_offset: offsets.fajr, dhuhr_offset: offsets.dhuhr, asr_offset: offsets.asr,
         maghrib_offset: offsets.maghrib, isha_offset: offsets.isha,
         latitude: loc.latitude, longitude: loc.longitude,
         city: loc.city, country: loc.country, timezone: loc.timezone,
         updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id" });
+      } as any, { onConflict: "user_id" });
     },
     onSuccess: () => { toast.success("Settings saved"); qc.invalidateQueries({ queryKey: ["prayer_settings"] }); },
     onError: (e: any) => toast.error(e.message ?? "Failed to save"),
@@ -308,12 +315,61 @@ function PrayerSettings() {
         </div>
       </div>
 
-      <div className="glass-card rounded-3xl p-5 flex items-center justify-between">
-        <span className="text-sm">Notifications</span>
-        <button onClick={() => setNotif(!notif)} className={`h-7 w-12 rounded-full transition relative ${notif ? "bg-primary" : "bg-surface-elevated"}`}>
-          <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition ${notif ? "left-5" : "left-0.5"}`} />
-        </button>
+      <div className="glass-card rounded-3xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold">Prayer notifications</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {permission === "granted" ? "Browser permission granted" : permission === "denied" ? "Blocked in browser settings" : "Permission required"}
+            </p>
+          </div>
+          <button
+            onClick={async () => {
+              const next = !notif;
+              if (next && permission !== "granted") {
+                const p = await requestNotificationPermission();
+                setPermission(p);
+                if (p !== "granted") { toast.error("Enable notifications in your browser"); return; }
+              }
+              setNotif(next);
+            }}
+            className={`h-7 w-12 rounded-full transition relative ${notif ? "bg-primary" : "bg-surface-elevated"}`}>
+            <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition ${notif ? "left-5" : "left-0.5"}`} />
+          </button>
+        </div>
+
+        {notif && (
+          <>
+            <div>
+              <p className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2">Notify for</p>
+              <div className="grid grid-cols-5 gap-1.5">
+                {(["fajr","dhuhr","asr","maghrib","isha"] as PrayerKey[]).map(k => {
+                  const on = notifyPrayers.includes(k);
+                  return (
+                    <button key={k} type="button"
+                      onClick={() => setNotifyPrayers(on ? notifyPrayers.filter(x => x !== k) : [...notifyPrayers, k])}
+                      className={`h-9 rounded-xl text-[11px] font-semibold ${on ? "bg-primary text-primary-foreground" : "bg-surface text-muted-foreground"}`}>
+                      {PRAYER_LABELS[k].slice(0,3)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2">Reminder before</p>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[0,5,10,15].map(m => (
+                  <button key={m} type="button" onClick={() => setNotifyBefore(m)}
+                    className={`h-9 rounded-xl text-xs font-semibold ${notifyBefore === m ? "bg-primary text-primary-foreground" : "bg-surface text-muted-foreground"}`}>
+                    {m === 0 ? "At time" : `${m} min`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
+
 
       <button onClick={() => save.mutate()} disabled={save.isPending}
         className="w-full h-12 rounded-2xl hero-gradient font-semibold disabled:opacity-50">Save settings</button>

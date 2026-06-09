@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect, Link, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Home, Compass, BookOpen, Target, User } from "lucide-react";
+import { usePrayerSettings, usePrayerNotifications } from "@/lib/prayer-times";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -22,6 +23,9 @@ const tabs = [
 
 function AppLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const settings = usePrayerSettings();
+  usePrayerNotifications(settings.data);
+
   return (
     <div className="app-shell min-h-screen">
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col md:max-w-[420px] md:my-6 md:min-h-[calc(100vh-3rem)] md:rounded-[2.25rem] md:border md:border-border md:overflow-hidden md:shadow-2xl">

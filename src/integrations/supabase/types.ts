@@ -180,6 +180,8 @@ export type Database = {
           maghrib_offset: number
           method: string
           notifications: boolean
+          notify_before_min: number
+          notify_prayers: Json
           timezone: string | null
           updated_at: string
           user_id: string
@@ -196,6 +198,8 @@ export type Database = {
           maghrib_offset?: number
           method?: string
           notifications?: boolean
+          notify_before_min?: number
+          notify_prayers?: Json
           timezone?: string | null
           updated_at?: string
           user_id: string
@@ -212,6 +216,8 @@ export type Database = {
           maghrib_offset?: number
           method?: string
           notifications?: boolean
+          notify_before_min?: number
+          notify_prayers?: Json
           timezone?: string | null
           updated_at?: string
           user_id?: string
