@@ -315,12 +315,61 @@ function PrayerSettings() {
         </div>
       </div>
 
-      <div className="glass-card rounded-3xl p-5 flex items-center justify-between">
-        <span className="text-sm">Notifications</span>
-        <button onClick={() => setNotif(!notif)} className={`h-7 w-12 rounded-full transition relative ${notif ? "bg-primary" : "bg-surface-elevated"}`}>
-          <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition ${notif ? "left-5" : "left-0.5"}`} />
-        </button>
+      <div className="glass-card rounded-3xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold">Prayer notifications</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {permission === "granted" ? "Browser permission granted" : permission === "denied" ? "Blocked in browser settings" : "Permission required"}
+            </p>
+          </div>
+          <button
+            onClick={async () => {
+              const next = !notif;
+              if (next && permission !== "granted") {
+                const p = await requestNotificationPermission();
+                setPermission(p);
+                if (p !== "granted") { toast.error("Enable notifications in your browser"); return; }
+              }
+              setNotif(next);
+            }}
+            className={`h-7 w-12 rounded-full transition relative ${notif ? "bg-primary" : "bg-surface-elevated"}`}>
+            <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition ${notif ? "left-5" : "left-0.5"}`} />
+          </button>
+        </div>
+
+        {notif && (
+          <>
+            <div>
+              <p className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2">Notify for</p>
+              <div className="grid grid-cols-5 gap-1.5">
+                {(["fajr","dhuhr","asr","maghrib","isha"] as PrayerKey[]).map(k => {
+                  const on = notifyPrayers.includes(k);
+                  return (
+                    <button key={k} type="button"
+                      onClick={() => setNotifyPrayers(on ? notifyPrayers.filter(x => x !== k) : [...notifyPrayers, k])}
+                      className={`h-9 rounded-xl text-[11px] font-semibold ${on ? "bg-primary text-primary-foreground" : "bg-surface text-muted-foreground"}`}>
+                      {PRAYER_LABELS[k].slice(0,3)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2">Reminder before</p>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[0,5,10,15].map(m => (
+                  <button key={m} type="button" onClick={() => setNotifyBefore(m)}
+                    className={`h-9 rounded-xl text-xs font-semibold ${notifyBefore === m ? "bg-primary text-primary-foreground" : "bg-surface text-muted-foreground"}`}>
+                    {m === 0 ? "At time" : `${m} min`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
+
 
       <button onClick={() => save.mutate()} disabled={save.isPending}
         className="w-full h-12 rounded-2xl hero-gradient font-semibold disabled:opacity-50">Save settings</button>
