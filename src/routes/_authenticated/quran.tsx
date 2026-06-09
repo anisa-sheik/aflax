@@ -153,7 +153,7 @@ function MushafReader({
       if (existing) await supabase.from("quran_bookmarks").delete().eq("id", (existing as any).id);
       else await supabase.from("quran_bookmarks").insert({
         user_id: user.id, surah: surahNum, ayah: 1, page,
-      });
+      } as any);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["quran_bookmarks"] }),
   });
