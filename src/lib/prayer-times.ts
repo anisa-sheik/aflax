@@ -15,6 +15,8 @@ export type PrayerSettings = {
   country: string | null;
   timezone: string | null;
   notifications: boolean;
+  notify_prayers: PrayerKey[];
+  notify_before_min: number;
   fajr_offset: number; dhuhr_offset: number; asr_offset: number;
   maghrib_offset: number; isha_offset: number;
 };
