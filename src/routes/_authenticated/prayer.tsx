@@ -216,12 +216,13 @@ function PrayerSettings() {
       const { data: { user } } = await supabase.auth.getUser();
       await supabase.from("prayer_settings").upsert({
         user_id: user!.id, method, notifications: notif,
+        notify_prayers: notifyPrayers, notify_before_min: notifyBefore,
         fajr_offset: offsets.fajr, dhuhr_offset: offsets.dhuhr, asr_offset: offsets.asr,
         maghrib_offset: offsets.maghrib, isha_offset: offsets.isha,
         latitude: loc.latitude, longitude: loc.longitude,
         city: loc.city, country: loc.country, timezone: loc.timezone,
         updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id" });
+      } as any, { onConflict: "user_id" });
     },
     onSuccess: () => { toast.success("Settings saved"); qc.invalidateQueries({ queryKey: ["prayer_settings"] }); },
     onError: (e: any) => toast.error(e.message ?? "Failed to save"),
