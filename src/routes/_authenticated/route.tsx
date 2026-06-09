@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect, Link, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Home, Compass, BookOpen, Target, User } from "lucide-react";
+import { usePrayerSettings, usePrayerNotifications } from "@/lib/prayer-times";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
