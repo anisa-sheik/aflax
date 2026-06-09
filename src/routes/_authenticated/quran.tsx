@@ -115,7 +115,7 @@ function MushafReader({
         ayah: 1,
         page,
         updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id" });
+      } as any, { onConflict: "user_id" });
 
       if (page > prevPageRef.current) {
         await supabase.from("quran_progress").insert({
