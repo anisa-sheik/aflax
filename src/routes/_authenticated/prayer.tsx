@@ -8,6 +8,7 @@ import {
   METHODS, MethodKey, PRAYER_KEYS, PRAYER_LABELS, PRAYER_ARABIC,
   usePrayerSettings, useNextPrayer, computeTimes, fmt,
   detectLocation, searchLocation, PrayerKey,
+  requestNotificationPermission,
 } from "@/lib/prayer-times";
 
 export const Route = createFileRoute("/_authenticated/prayer")({
