@@ -190,6 +190,9 @@ function PrayerSettings() {
 
   const [method, setMethod] = useState<MethodKey>("MWL");
   const [notif, setNotif] = useState(false);
+  const [notifyPrayers, setNotifyPrayers] = useState<PrayerKey[]>(["fajr","dhuhr","asr","maghrib","isha"]);
+  const [notifyBefore, setNotifyBefore] = useState(0);
+  const [permission, setPermission] = useState<NotificationPermission>(typeof Notification !== "undefined" ? Notification.permission : "denied");
   const [offsets, setOffsets] = useState({ fajr: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0 });
   const [loc, setLoc] = useState<{ latitude: number | null; longitude: number | null; city: string | null; country: string | null; timezone: string | null }>({ latitude: null, longitude: null, city: null, country: null, timezone: null });
   const [search, setSearch] = useState("");
