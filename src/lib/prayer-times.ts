@@ -146,3 +146,74 @@ export async function searchLocation(q: string): Promise<Array<{ display: string
     country: x.address?.country || null,
   }));
 }
+
+// ---------- Notifications ----------
+
+export async function requestNotificationPermission(): Promise<NotificationPermission> {
+  if (typeof window === "undefined" || !("Notification" in window)) return "denied";
+  if (Notification.permission === "default") {
+    try { return await Notification.requestPermission(); } catch { return "denied"; }
+  }
+  return Notification.permission;
+}
+
+const NOTIFIED_KEY = "deen.notified";
+function loadNotified(): Record<string, true> {
+  try { return JSON.parse(localStorage.getItem(NOTIFIED_KEY) || "{}"); } catch { return {}; }
+}
+function saveNotified(m: Record<string, true>) {
+  // keep only today + yesterday
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 1);
+  const c = cutoff.toISOString().slice(0, 10);
+  const out: Record<string, true> = {};
+  for (const k of Object.keys(m)) if (k.slice(0, 10) >= c) out[k] = true;
+  localStorage.setItem(NOTIFIED_KEY, JSON.stringify(out));
+}
+
+function fire(title: string, body: string) {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+  try { new Notification(title, { body, tag: title, icon: "/favicon.ico", silent: false }); } catch {}
+}
+
+/** Schedules browser notifications for today's prayers based on settings. */
+export function usePrayerNotifications(s: PrayerSettings | null | undefined) {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!s || !s.notifications) return;
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+
+    const tick = () => {
+      const now = new Date();
+      const t = computeTimes(s, now);
+      if (!t) return;
+      const fired = loadNotified();
+      const before = Math.max(0, s.notify_before_min || 0) * 60_000;
+      const enabled = new Set<PrayerKey>((s.notify_prayers ?? PRAYER_KEYS.filter(k => k !== "sunrise")) as PrayerKey[]);
+      for (const k of PRAYER_KEYS) {
+        if (k === "sunrise") continue;
+        if (!enabled.has(k)) continue;
+        const at = (t as any)[k] as Date;
+        const reminderAt = new Date(at.getTime() - before);
+        // fire reminder (if configured) once
+        if (before > 0) {
+          const rKey = `${reminderAt.toISOString().slice(0, 10)}:${k}:r`;
+          if (!fired[rKey] && now >= reminderAt && now < at) {
+            fire(`${PRAYER_LABELS[k]} in ${s.notify_before_min} min`, `at ${fmt(at)}`);
+            fired[rKey] = true;
+          }
+        }
+        const aKey = `${at.toISOString().slice(0, 10)}:${k}:a`;
+        if (!fired[aKey] && now >= at && now.getTime() - at.getTime() < 5 * 60_000) {
+          fire(`${PRAYER_LABELS[k]} • ${PRAYER_ARABIC[k]}`, `It's time for ${PRAYER_LABELS[k]} (${fmt(at)})`);
+          fired[aKey] = true;
+        }
+      }
+      saveNotified(fired);
+    };
+
+    tick();
+    const id = setInterval(tick, 30_000);
+    return () => clearInterval(id);
+  }, [s]);
+}
