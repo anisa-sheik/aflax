@@ -4,25 +4,23 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Bookmark, ChevronLeft, ChevronRight, Loader2, Menu, X, BookOpen,
-  Sparkles, Minus, Plus, Search, Target, Trash2,
+  Search, Target, Trash2, Eye, EyeOff,
 } from "lucide-react";
 import {
-  fetchSurahs, fetchPage, type Ayah, type Surah,
+  fetchSurahs, type Surah,
   TOTAL_PAGES, SURAH_START_PAGE, JUZ_START_PAGE,
+  mushafImageUrl, pageToSurah, pageToJuz,
 } from "@/lib/quran-api";
 
 export const Route = createFileRoute("/_authenticated/quran")({
   component: QuranScreen,
 });
 
-const FS_KEY = "quran_mushaf_fs";
-const TJ_KEY = "quran_mushaf_tj";
 const GOAL_KEY = "quran_khatm_days";
-
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 function arabicNum(n: number) { return String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[+d]); }
 
-/* ───────────────────────────────────────── Root ───────────────────────────────────────── */
+/* ───────────────────────────────── Root ───────────────────────────────── */
 
 function QuranScreen() {
   const qc = useQueryClient();
@@ -34,33 +32,22 @@ function QuranScreen() {
       if (!user) return null;
       const { data } = await supabase
         .from("quran_reading_state").select("*").eq("user_id", user.id).maybeSingle();
-      return data as { surah: number; ayah: number } | null;
+      return data as { surah: number; ayah: number; page?: number } | null;
     },
   });
+
+  const surahsQ = useQuery({ queryKey: ["surahs"], queryFn: fetchSurahs, staleTime: Infinity });
 
   const [page, setPage] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [chromeHidden, setChromeHidden] = useState(false);
 
-  // Initialise page from last reading state (once)
   useEffect(() => {
-    if (page !== null) return;
-    if (stateQ.isLoading) return;
+    if (page !== null || stateQ.isLoading) return;
     const s = stateQ.data;
-    const p = s ? (SURAH_START_PAGE[s.surah] ?? 1) : 1;
+    const p = (s as any)?.page ?? (s ? (SURAH_START_PAGE[s.surah] ?? 1) : 1);
     setPage(p);
   }, [stateQ.data, stateQ.isLoading, page]);
-
-  const [fontSize, setFontSize] = useState<number>(() => {
-    const v = typeof window !== "undefined" ? localStorage.getItem(FS_KEY) : null;
-    return v ? Number(v) : 30;
-  });
-  const [tajweed, setTajweed] = useState<boolean>(() => {
-    const v = typeof window !== "undefined" ? localStorage.getItem(TJ_KEY) : null;
-    return v ? v === "1" : true;
-  });
-  useEffect(() => { localStorage.setItem(FS_KEY, String(fontSize)); }, [fontSize]);
-  useEffect(() => { localStorage.setItem(TJ_KEY, tajweed ? "1" : "0"); }, [tajweed]);
 
   if (page === null) {
     return (
@@ -72,90 +59,69 @@ function QuranScreen() {
 
   return (
     <div className="mushaf-shell relative h-full">
-      <MushafPage
+      <MushafReader
         page={page}
-        fontSize={fontSize}
-        tajweed={tajweed}
+        surahs={surahsQ.data ?? []}
         chromeHidden={chromeHidden}
         onToggleChrome={() => setChromeHidden(v => !v)}
         onMenu={() => setMenuOpen(true)}
         onPrev={() => setPage(p => Math.max(1, (p ?? 1) - 1))}
         onNext={() => setPage(p => Math.min(TOTAL_PAGES, (p ?? 1) + 1))}
-        setTajweed={setTajweed}
-        setFontSize={setFontSize}
       />
 
       {menuOpen && (
         <MushafMenu
           currentPage={page}
           onClose={() => setMenuOpen(false)}
-          onJumpPage={(p) => { setPage(p); setMenuOpen(false); qc.invalidateQueries({ queryKey: ["quran_state"] }); }}
+          onJumpPage={(p) => {
+            setPage(p);
+            setMenuOpen(false);
+            qc.invalidateQueries({ queryKey: ["quran_state"] });
+          }}
         />
       )}
     </div>
   );
 }
 
-/* ───────────────────────────────────────── Page ───────────────────────────────────────── */
+/* ───────────────────────────────── Mushaf Reader ───────────────────────────────── */
 
-function MushafPage({
-  page, fontSize, tajweed, chromeHidden,
-  onToggleChrome, onMenu, onPrev, onNext, setTajweed, setFontSize,
+function MushafReader({
+  page, surahs, chromeHidden, onToggleChrome, onMenu, onPrev, onNext,
 }: {
   page: number;
-  fontSize: number;
-  tajweed: boolean;
+  surahs: Surah[];
   chromeHidden: boolean;
   onToggleChrome: () => void;
   onMenu: () => void;
   onPrev: () => void;
   onNext: () => void;
-  setTajweed: (fn: (v: boolean) => boolean) => void;
-  setFontSize: (fn: (v: number) => number) => void;
 }) {
   const qc = useQueryClient();
-  const ayahsQ = useQuery({
-    queryKey: ["mushaf_page", page],
-    queryFn: () => fetchPage(page),
-    staleTime: Infinity,
-  });
 
-  const ayahs: Ayah[] = ayahsQ.data ?? [];
+  const surahNum = pageToSurah(page);
+  const juz = pageToJuz(page);
+  const surah = surahs.find(s => s.number === surahNum);
 
-  // Group consecutive ayahs by surah for headers within a page
-  const groups = useMemo(() => {
-    const out: { surah: Ayah["surah"]; ayahs: Ayah[] }[] = [];
-    for (const a of ayahs) {
-      const last = out[out.length - 1];
-      if (last && last.surah.number === a.surah.number) last.ayahs.push(a);
-      else out.push({ surah: a.surah, ayahs: [a] });
-    }
-    return out;
-  }, [ayahs]);
-
-  const firstAyah = ayahs[0];
-  const juz = firstAyah?.juz;
-
-  // Persist reading state + log progress (debounced on page change)
+  // Persist reading + log progress on page change
   const prevPageRef = useRef<number>(page);
   useEffect(() => {
-    if (!firstAyah) return;
     const t = setTimeout(async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       await supabase.from("quran_reading_state").upsert({
         user_id: user.id,
-        surah: firstAyah.surah.number,
-        ayah: firstAyah.numberInSurah,
+        surah: surahNum,
+        ayah: 1,
+        page,
         updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id" });
+      } as any, { onConflict: "user_id" });
 
-      // Log ayāt advanced when moving forward
       if (page > prevPageRef.current) {
         await supabase.from("quran_progress").insert({
           user_id: user.id,
-          surah: firstAyah.surah.number,
-          ayah: ayahs.length,
+          surah: surahNum,
+          ayah: 15, // average ayāt per Mushaf page
           read_date: todayISO(),
         });
         qc.invalidateQueries({ queryKey: ["quran_progress_today"] });
@@ -164,34 +130,57 @@ function MushafPage({
       }
       prevPageRef.current = page;
       qc.invalidateQueries({ queryKey: ["quran_state"] });
-    }, 700);
+    }, 600);
     return () => clearTimeout(t);
-  }, [page, firstAyah, ayahs.length, qc]);
+  }, [page, surahNum, qc]);
 
-  // Bookmark current page (first ayah on page)
+  // Bookmarks (per-page)
   const bookmarksQ = useQuery({
     queryKey: ["quran_bookmarks"],
     queryFn: async () => (await supabase.from("quran_bookmarks").select("*")).data ?? [],
   });
-  const isBookmarked = useMemo(() => {
-    if (!firstAyah) return false;
-    return (bookmarksQ.data ?? []).some((b: any) =>
-      b.surah === firstAyah.surah.number && b.ayah === firstAyah.numberInSurah);
-  }, [bookmarksQ.data, firstAyah]);
-
+  const isBookmarked = useMemo(
+    () => (bookmarksQ.data ?? []).some((b: any) => (b.page ?? SURAH_START_PAGE[b.surah]) === page),
+    [bookmarksQ.data, page],
+  );
   const toggleBm = useMutation({
     mutationFn: async () => {
-      if (!firstAyah) return;
       const { data: { user } } = await supabase.auth.getUser();
-      const existing = (bookmarksQ.data ?? []).find((b: any) =>
-        b.surah === firstAyah.surah.number && b.ayah === firstAyah.numberInSurah);
+      if (!user) return;
+      const existing = (bookmarksQ.data ?? []).find(
+        (b: any) => (b.page ?? SURAH_START_PAGE[b.surah]) === page,
+      );
       if (existing) await supabase.from("quran_bookmarks").delete().eq("id", (existing as any).id);
       else await supabase.from("quran_bookmarks").insert({
-        user_id: user!.id, surah: firstAyah.surah.number, ayah: firstAyah.numberInSurah,
-      });
+        user_id: user.id, surah: surahNum, ayah: 1, page,
+      } as any);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["quran_bookmarks"] }),
   });
+
+  // Swipe navigation
+  const touchX = useRef<number | null>(null);
+  function onTouchStart(e: React.TouchEvent) { touchX.current = e.touches[0].clientX; }
+  function onTouchEnd(e: React.TouchEvent) {
+    if (touchX.current == null) return;
+    const dx = e.changedTouches[0].clientX - touchX.current;
+    touchX.current = null;
+    if (Math.abs(dx) < 50) return;
+    // Mushaf RTL: swipe left → next page, swipe right → previous page
+    if (dx < 0) onNext(); else onPrev();
+  }
+
+  // Preload neighbouring pages
+  useEffect(() => {
+    [page - 1, page + 1].forEach(p => {
+      if (p < 1 || p > TOTAL_PAGES) return;
+      const i = new Image();
+      i.src = mushafImageUrl(p);
+    });
+  }, [page]);
+
+  const [imgLoading, setImgLoading] = useState(true);
+  useEffect(() => { setImgLoading(true); }, [page]);
 
   return (
     <div className="flex flex-col h-full">
@@ -203,15 +192,12 @@ function MushafPage({
           </button>
           <div className="flex-1 min-w-0 text-center">
             <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-              {firstAyah ? `Juz ${juz}` : "—"}
+              Juz {juz}
             </p>
             <p className="text-sm font-semibold truncate">
-              {firstAyah ? (
-                <>
-                  {firstAyah.surah.englishName} ·{" "}
-                  <span className="font-quran text-base">{firstAyah.surah.name}</span>
-                </>
-              ) : "…"}
+              {surah ? (
+                <>{surah.englishName} · <span className="font-quran text-base">{surah.name}</span></>
+              ) : `Surah ${surahNum}`}
             </p>
           </div>
           <button
@@ -223,96 +209,66 @@ function MushafPage({
         </div>
       </header>
 
-      {/* Mushaf page surface */}
-      <button
+      {/* Mushaf page image */}
+      <div
+        className="flex-1 overflow-hidden relative"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
         onClick={onToggleChrome}
-        className="flex-1 overflow-y-auto text-left cursor-default"
-        aria-label="Toggle reader chrome"
       >
-        <div className="mushaf-paper mx-3 my-3 rounded-2xl p-5 md:p-7 min-h-full">
-          {ayahsQ.isLoading && (
-            <div className="py-24 text-center text-xs text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin inline" /> Loading page {page}…
-            </div>
-          )}
-          {ayahsQ.error && (
-            <p className="text-center text-sm text-destructive py-10">Could not load page. Check connection.</p>
-          )}
-
-          {groups.map((g, gi) => {
-            const startsAtAyahOne = g.ayahs[0]?.numberInSurah === 1;
-            const showBasmala = startsAtAyahOne && g.surah.number !== 1 && g.surah.number !== 9;
-            return (
-              <div key={gi}>
-                {/* Surah header within the page */}
-                <div className="my-4 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 flex items-center justify-between">
-                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                    Surah {g.surah.number}
-                  </span>
-                  <span className="font-quran text-xl">{g.surah.name}</span>
-                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                    {g.surah.englishName}
-                  </span>
-                </div>
-
-                {showBasmala && (
-                  <p dir="rtl" className="text-center font-quran py-2" style={{ fontSize: fontSize + 4 }}>
-                    بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-                  </p>
-                )}
-
-                {/* Continuous justified Mushaf text */}
-                <p
-                  dir="rtl"
-                  lang="ar"
-                  className="font-quran text-justify text-foreground/95"
-                  style={{ fontSize, lineHeight: 2.25, textAlignLast: "center" as any }}
-                  dangerouslySetInnerHTML={{
-                    __html: g.ayahs.map(a =>
-                      `${tajweed ? a.tajweedHtml : a.arabic}` +
-                      `<span class="ayah-end">${arabicNum(a.numberInSurah)}</span>`
-                    ).join(" "),
-                  }}
-                />
-              </div>
-            );
-          })}
-
-          {/* Page footer */}
-          <div className="mt-8 flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-            <span className="h-px flex-1 bg-border/60 max-w-[80px]" />
-            <span>Page {page} · {arabicNum(page)}</span>
-            <span className="h-px flex-1 bg-border/60 max-w-[80px]" />
+        {imgLoading && (
+          <div className="absolute inset-0 grid place-items-center text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin" />
           </div>
-        </div>
-      </button>
+        )}
+        <img
+          key={page}
+          src={mushafImageUrl(page)}
+          alt={`Mushaf page ${page}`}
+          onLoad={() => setImgLoading(false)}
+          onError={() => setImgLoading(false)}
+          className={`h-full w-full object-contain px-2 py-2 select-none transition-opacity duration-300 ${imgLoading ? "opacity-0" : "opacity-100"}`}
+          draggable={false}
+        />
+
+        {/* Edge tap zones */}
+        <button
+          aria-label="Next page"
+          onClick={(e) => { e.stopPropagation(); onNext(); }}
+          className="absolute inset-y-0 left-0 w-1/5"
+        />
+        <button
+          aria-label="Previous page"
+          onClick={(e) => { e.stopPropagation(); onPrev(); }}
+          className="absolute inset-y-0 right-0 w-1/5"
+        />
+      </div>
 
       {/* Bottom chrome */}
       <footer className={`shrink-0 transition-all duration-300 ${chromeHidden ? "opacity-0 pointer-events-none translate-y-2" : "opacity-100"}`}>
         <div className="px-4 pb-6 pt-2 flex items-center gap-2">
-          <button onClick={onNext} className="grid h-11 w-11 place-items-center rounded-xl bg-surface/70" title="Previous page (right→left)">
+          <button onClick={onNext} className="grid h-11 w-11 place-items-center rounded-xl bg-surface/70" title="Next page">
             <ChevronLeft className="h-5 w-5" />
           </button>
           <div className="flex-1 flex items-center gap-2 rounded-2xl bg-surface/60 px-3 py-2">
-            <button onClick={() => setFontSize(s => Math.max(20, s - 2))} className="grid h-8 w-8 place-items-center rounded-lg bg-background/50">
-              <Minus className="h-4 w-4" />
-            </button>
-            <button onClick={() => setFontSize(s => Math.min(48, s + 2))} className="grid h-8 w-8 place-items-center rounded-lg bg-background/50">
-              <Plus className="h-4 w-4" />
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleChrome(); }}
+              className="grid h-8 w-8 place-items-center rounded-lg bg-background/50"
+              title="Toggle chrome"
+            >
+              {chromeHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
             </button>
             <div className="flex-1 text-center">
               <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Page</p>
-              <p className="text-sm font-semibold tabular-nums">{page} / {TOTAL_PAGES}</p>
+              <p className="text-sm font-semibold tabular-nums">
+                {page} · {arabicNum(page)} / {TOTAL_PAGES}
+              </p>
             </div>
-            <button
-              onClick={() => setTajweed(v => !v)}
-              className={`grid h-8 w-8 place-items-center rounded-lg ${tajweed ? "bg-primary/20 text-primary" : "bg-background/50 text-muted-foreground"}`}
-              title="Toggle tajweed"
-            >
-              <Sparkles className="h-4 w-4" />
+            <button onClick={onMenu} className="grid h-8 w-8 place-items-center rounded-lg bg-background/50">
+              <Search className="h-4 w-4" />
             </button>
           </div>
-          <button onClick={onPrev} className="grid h-11 w-11 place-items-center rounded-xl bg-surface/70" title="Next page">
+          <button onClick={onPrev} className="grid h-11 w-11 place-items-center rounded-xl bg-surface/70" title="Previous page">
             <ChevronRight className="h-5 w-5" />
           </button>
         </div>
@@ -321,7 +277,7 @@ function MushafPage({
   );
 }
 
-/* ─────────────────────────────────────── Menu / Index ─────────────────────────────────────── */
+/* ─────────────────────────────── Menu / Index ─────────────────────────────── */
 
 function MushafMenu({
   currentPage, onClose, onJumpPage,
@@ -443,15 +399,17 @@ function MushafMenu({
         {tab === "bookmarks" && (
           <ul className="space-y-2">
             {(bookmarksQ.data ?? []).map((b: any) => {
+              const bmPage = b.page ?? SURAH_START_PAGE[b.surah] ?? 1;
               const s = (surahsQ.data ?? []).find((x: Surah) => x.number === b.surah);
               return (
                 <li key={b.id} className="glass-card rounded-2xl p-3 flex items-center gap-3">
-                  <button onClick={() => onJumpPage(SURAH_START_PAGE[b.surah] ?? 1)}
-                    className="flex-1 text-left min-w-0">
+                  <button onClick={() => onJumpPage(bmPage)} className="flex-1 text-left min-w-0">
                     <p className="text-sm font-semibold truncate">
-                      {s?.englishName ?? `Surah ${b.surah}`} · Ayah {b.ayah}
+                      Page {bmPage} · Juz {pageToJuz(bmPage)}
                     </p>
-                    <p className="text-[11px] text-muted-foreground">Page {SURAH_START_PAGE[b.surah] ?? "?"}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {s?.englishName ?? `Surah ${b.surah}`}
+                    </p>
                   </button>
                   <button onClick={() => delBm.mutate(b.id)} className="grid h-8 w-8 place-items-center rounded-xl bg-surface">
                     <Trash2 className="h-4 w-4 text-destructive" />
@@ -471,7 +429,7 @@ function MushafMenu({
   );
 }
 
-/* ─────────────────────────────────────── Khatm tracker ─────────────────────────────────────── */
+/* ───────────────────────────── Khatm tracker ───────────────────────────── */
 
 import { Heatmap } from "@/components/Heatmap";
 
@@ -488,8 +446,8 @@ function KhatmPanel({ currentPage }: { currentPage: number }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return { reached: currentPage };
       const { data } = await supabase
-        .from("quran_reading_state").select("surah,ayah").eq("user_id", user.id).maybeSingle();
-      const reachedFromState = data ? (SURAH_START_PAGE[(data as any).surah] ?? 1) : 1;
+        .from("quran_reading_state").select("surah,ayah,page").eq("user_id", user.id).maybeSingle();
+      const reachedFromState = (data as any)?.page ?? (data ? (SURAH_START_PAGE[(data as any).surah] ?? 1) : 1);
       return { reached: Math.max(reachedFromState, currentPage) };
     },
   });
@@ -512,8 +470,7 @@ function KhatmPanel({ currentPage }: { currentPage: number }) {
   const reached = stateQ.data?.reached ?? currentPage;
   const pct = Math.round((reached / TOTAL_PAGES) * 100);
   const pagesPerDay = Math.max(1, Math.ceil((TOTAL_PAGES - reached) / Math.max(1, goal)));
-  const juzReached = Math.ceil(reached / 20.13);
-
+  const juzReached = pageToJuz(reached);
   const presets = [30, 60, 90];
 
   return (
