@@ -209,9 +209,9 @@ function MushafReader({
         </div>
       </header>
 
-      {/* Mushaf page image */}
+      {/* Mushaf page image — rendered on authentic paper background */}
       <div
-        className="flex-1 overflow-hidden relative"
+        className="flex-1 overflow-hidden relative flex items-center justify-center px-3 py-3"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
         onClick={onToggleChrome}
@@ -221,15 +221,25 @@ function MushafReader({
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
         )}
-        <img
-          key={page}
-          src={mushafImageUrl(page)}
-          alt={`Mushaf page ${page}`}
-          onLoad={() => setImgLoading(false)}
-          onError={() => setImgLoading(false)}
-          className={`h-full w-full object-contain px-2 py-2 select-none transition-opacity duration-300 ${imgLoading ? "opacity-0" : "opacity-100"}`}
-          draggable={false}
-        />
+        <div
+          className="relative h-full w-full max-w-2xl mx-auto rounded-2xl overflow-hidden shadow-2xl"
+          style={{
+            background:
+              "linear-gradient(180deg, #f7efd9 0%, #f1e6c4 50%, #ead9a8 100%)",
+            boxShadow:
+              "0 20px 50px -20px rgba(0,0,0,0.6), inset 0 0 60px rgba(120, 85, 30, 0.08)",
+          }}
+        >
+          <img
+            key={page}
+            src={mushafImageUrl(page)}
+            alt={`Mushaf page ${page}`}
+            onLoad={() => setImgLoading(false)}
+            onError={() => setImgLoading(false)}
+            className={`h-full w-full object-contain select-none transition-opacity duration-300 ${imgLoading ? "opacity-0" : "opacity-100"}`}
+            draggable={false}
+          />
+        </div>
 
         {/* Edge tap zones */}
         <button
