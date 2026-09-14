@@ -216,6 +216,21 @@ function PrayerSettings() {
     }
   }, [q.data]);
 
+  useEffect(() => {
+    // Check whether this device already has a registered FCM token.
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user || !('serviceWorker' in navigator)) { setPushEnabled(false); return; }
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        const hasSw = regs.some(r => r.scope.includes('firebase-messaging-sw'));
+        if (!hasSw) { setPushEnabled(false); return; }
+        const { count } = await supabase.from('device_tokens').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+        setPushEnabled((count ?? 0) > 0);
+      } catch { setPushEnabled(false); }
+    });
+  }, []);
+
+
   const save = useMutation({
     mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
