@@ -390,9 +390,52 @@ function PrayerSettings() {
         )}
       </div>
 
+      <div className="glass-card rounded-3xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold flex items-center gap-2"><Smartphone className="h-4 w-4" /> Push when app is closed</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {pushEnabled ? "This device will receive push notifications" : "Enable to get notifications even when the app is closed"}
+            </p>
+          </div>
+          <button
+            onClick={async () => {
+              if (pushEnabled) {
+                setPushLoading(true);
+                await unregisterPush();
+                setPushEnabled(false);
+                setPushLoading(false);
+                toast.success("Push notifications disabled");
+                return;
+              }
+              setPushLoading(true);
+              const res = await requestPushNotifications();
+              setPushLoading(false);
+              if (res.status === 'registered') {
+                setPushEnabled(true);
+                toast.success("Push notifications enabled");
+                setNotif(true);
+                setPermission('granted');
+              } else if (res.status === 'open-in-new-tab') {
+                toast.error("Open the app in its own browser tab to enable push");
+              } else if (res.status === 'denied') {
+                toast.error("Notification permission denied. Enable it in browser settings.");
+              } else if (res.status === 'not-configured') {
+                toast.error("Firebase Messaging is not connected yet");
+              } else {
+                toast.error(res.error || "Could not enable push");
+              }
+            }}
+            disabled={pushLoading}
+            className={`h-7 w-12 rounded-full transition relative disabled:opacity-50 ${pushEnabled ? "bg-primary" : "bg-surface-elevated"}`}>
+            <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition ${pushEnabled ? "left-5" : "left-0.5"}`} />
+          </button>
+        </div>
+      </div>
 
       <button onClick={() => save.mutate()} disabled={save.isPending}
         className="w-full h-12 rounded-2xl hero-gradient font-semibold disabled:opacity-50">Save settings</button>
     </section>
   );
 }
+
