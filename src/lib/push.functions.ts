@@ -7,11 +7,8 @@ export const sendPushToUser = createServerFn({ method: 'POST' })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { userId: string; title: string; body: string; tag?: string; path?: string }) => data)
   .handler(async ({ data, context }) => {
-    // Only admins or the user themselves can send push to a user.
-    if (data.userId !== context.userId) {
-      const { data: isAdmin } = await context.supabase.rpc('has_role', { _user_id: context.userId, _role: 'admin' });
-      if (!isAdmin) throw new Error('Forbidden');
-    }
+    // Users may only send push notifications to themselves.
+    if (data.userId !== context.userId) throw new Error('Forbidden');
 
     const LOVABLE_API_KEY = process.env['LOVABLE_API_KEY'];
     const connectionApiKey = process.env['FIREBASE_MESSAGING_API_KEY'];
@@ -40,7 +37,7 @@ export const sendPushToUser = createServerFn({ method: 'POST' })
           message: {
             token,
             notification: { title: data.title, body: data.body },
-            data: { tag: data.tag ?? 'deen', path: data.path ?? '/', ...(data.path ? { path: data.path } : {}) },
+            data: { tag: data.tag ?? 'deen', path: data.path ?? '/' },
           },
         }),
       });
