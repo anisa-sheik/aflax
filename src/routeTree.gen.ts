@@ -17,6 +17,7 @@ import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPrayerRouteImport } from './routes/_authenticated/prayer'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedGoalsRouteImport } from './routes/_authenticated/goals'
+import { Route as ApiPublicNotifyPrayersRouteImport } from './routes/api/public/notify-prayers'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -57,6 +58,11 @@ const AuthenticatedGoalsRoute = AuthenticatedGoalsRouteImport.update({
   path: '/goals',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiPublicNotifyPrayersRoute = ApiPublicNotifyPrayersRouteImport.update({
+  id: '/api/public/notify-prayers',
+  path: '/api/public/notify-prayers',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/prayer': typeof AuthenticatedPrayerRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/quran': typeof AuthenticatedQuranRoute
+  '/api/public/notify-prayers': typeof ApiPublicNotifyPrayersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/prayer': typeof AuthenticatedPrayerRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/quran': typeof AuthenticatedQuranRoute
+  '/api/public/notify-prayers': typeof ApiPublicNotifyPrayersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/_authenticated/prayer': typeof AuthenticatedPrayerRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/quran': typeof AuthenticatedQuranRoute
+  '/api/public/notify-prayers': typeof ApiPublicNotifyPrayersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -97,8 +106,17 @@ export interface FileRouteTypes {
     | '/prayer'
     | '/profile'
     | '/quran'
+    | '/api/public/notify-prayers'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/goals' | '/home' | '/prayer' | '/profile' | '/quran'
+  to:
+    | '/'
+    | '/auth'
+    | '/goals'
+    | '/home'
+    | '/prayer'
+    | '/profile'
+    | '/quran'
+    | '/api/public/notify-prayers'
   id:
     | '__root__'
     | '/'
@@ -109,12 +127,14 @@ export interface FileRouteTypes {
     | '/_authenticated/prayer'
     | '/_authenticated/profile'
     | '/_authenticated/quran'
+    | '/api/public/notify-prayers'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicNotifyPrayersRoute: typeof ApiPublicNotifyPrayersRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -175,6 +195,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGoalsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/notify-prayers': {
+      id: '/api/public/notify-prayers'
+      path: '/api/public/notify-prayers'
+      fullPath: '/api/public/notify-prayers'
+      preLoaderRoute: typeof ApiPublicNotifyPrayersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -201,6 +228,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicNotifyPrayersRoute: ApiPublicNotifyPrayersRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

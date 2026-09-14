@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Compass, Check, Clock, X, MapPin, Search, Locate, Loader2 } from "lucide-react";
+import { Compass, Check, Clock, X, MapPin, Search, Locate, Loader2, Bell, BellOff, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import {
   METHODS, MethodKey, PRAYER_KEYS, PRAYER_LABELS, PRAYER_ARABIC,
@@ -10,6 +10,8 @@ import {
   detectLocation, searchLocation, PrayerKey,
   requestNotificationPermission,
 } from "@/lib/prayer-times";
+import { requestPushNotifications, unregisterPush } from "@/lib/push";
+
 
 export const Route = createFileRoute("/_authenticated/prayer")({
   component: PrayerScreen,
@@ -198,6 +200,9 @@ function PrayerSettings() {
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+
   const [detecting, setDetecting] = useState(false);
 
   useEffect(() => {
@@ -210,6 +215,21 @@ function PrayerSettings() {
       setLoc({ latitude: d.latitude, longitude: d.longitude, city: d.city, country: d.country, timezone: d.timezone });
     }
   }, [q.data]);
+
+  useEffect(() => {
+    // Check whether this device already has a registered FCM token.
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user || !('serviceWorker' in navigator)) { setPushEnabled(false); return; }
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        const hasSw = regs.some(r => r.scope.includes('firebase-messaging-sw'));
+        if (!hasSw) { setPushEnabled(false); return; }
+        const { count } = await supabase.from('device_tokens').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+        setPushEnabled((count ?? 0) > 0);
+      } catch { setPushEnabled(false); }
+    });
+  }, []);
+
 
   const save = useMutation({
     mutationFn: async () => {
@@ -370,9 +390,52 @@ function PrayerSettings() {
         )}
       </div>
 
+      <div className="glass-card rounded-3xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold flex items-center gap-2"><Smartphone className="h-4 w-4" /> Push when app is closed</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {pushEnabled ? "This device will receive push notifications" : "Enable to get notifications even when the app is closed"}
+            </p>
+          </div>
+          <button
+            onClick={async () => {
+              if (pushEnabled) {
+                setPushLoading(true);
+                await unregisterPush();
+                setPushEnabled(false);
+                setPushLoading(false);
+                toast.success("Push notifications disabled");
+                return;
+              }
+              setPushLoading(true);
+              const res = await requestPushNotifications();
+              setPushLoading(false);
+              if (res.status === 'registered') {
+                setPushEnabled(true);
+                toast.success("Push notifications enabled");
+                setNotif(true);
+                setPermission('granted');
+              } else if (res.status === 'open-in-new-tab') {
+                toast.error("Open the app in its own browser tab to enable push");
+              } else if (res.status === 'denied') {
+                toast.error("Notification permission denied. Enable it in browser settings.");
+              } else if (res.status === 'not-configured') {
+                toast.error("Firebase Messaging is not connected yet");
+              } else {
+                toast.error(res.error || "Could not enable push");
+              }
+            }}
+            disabled={pushLoading}
+            className={`h-7 w-12 rounded-full transition relative disabled:opacity-50 ${pushEnabled ? "bg-primary" : "bg-surface-elevated"}`}>
+            <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition ${pushEnabled ? "left-5" : "left-0.5"}`} />
+          </button>
+        </div>
+      </div>
 
       <button onClick={() => save.mutate()} disabled={save.isPending}
         className="w-full h-12 rounded-2xl hero-gradient font-semibold disabled:opacity-50">Save settings</button>
     </section>
   );
 }
+
