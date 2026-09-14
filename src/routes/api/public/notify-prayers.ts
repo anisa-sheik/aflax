@@ -91,9 +91,14 @@ export const Route = createFileRoute('/api/public/notify-prayers')({
           const tokens = tokensByUser.get(row.user_id);
           if (!tokens || tokens.length === 0) continue;
 
-          const enabled = new Set<string>(Array.isArray(row.notify_prayers) ? row.notify_prayers : PRAYER_KEYS);
+          const enabled = new Set<string>(
+            Array.isArray(row.notify_prayers)
+              ? (row.notify_prayers as string[]).filter((x): x is string => typeof x === 'string')
+              : PRAYER_KEYS
+          );
           const beforeMin = Math.max(0, row.notify_before_min ?? 0);
           const beforeMs = beforeMin * 60_000;
+
 
           const timesToday = computeForRow(row, today);
           const timesTomorrow = computeForRow(row, tomorrow);
