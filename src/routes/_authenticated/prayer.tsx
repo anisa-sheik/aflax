@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Compass, Check, Clock, X, MapPin, Search, Locate, Loader2 } from "lucide-react";
+import { Compass, Check, Clock, X, MapPin, Search, Locate, Loader2, Bell, BellOff, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import {
   METHODS, MethodKey, PRAYER_KEYS, PRAYER_LABELS, PRAYER_ARABIC,
@@ -10,6 +10,8 @@ import {
   detectLocation, searchLocation, PrayerKey,
   requestNotificationPermission,
 } from "@/lib/prayer-times";
+import { requestPushNotifications, unregisterPush } from "@/lib/push";
+
 
 export const Route = createFileRoute("/_authenticated/prayer")({
   component: PrayerScreen,
