@@ -200,6 +200,9 @@ function PrayerSettings() {
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+
   const [detecting, setDetecting] = useState(false);
 
   useEffect(() => {
